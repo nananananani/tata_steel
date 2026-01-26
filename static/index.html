@@ -128,11 +128,15 @@
     <div class="max-w-[1400px] mx-auto">
         <!-- Header -->
         <div class="flex flex-col md:flex-row items-center justify-between mb-6 border-b border-gray-800/50 pb-6">
-            <div>
+            <div class="cursor-pointer" onclick="showSection('landingPage')">
                 <h1 class="text-3xl font-bold text-white mb-1">Tata Steel</h1>
                 <p class="text-[10px] text-gray-500 uppercase tracking-[0.2em] font-black">TMT Analysis Dashboard</p>
             </div>
             <div class="flex items-center gap-3 mt-4 md:mt-0">
+                <button onclick="showSection('landingPage')"
+                    class="text-gray-400 hover:text-white text-sm font-medium mr-4">
+                    Home
+                </button>
                 <span
                     class="px-2 py-1 rounded-md bg-green-500/10 text-green-400 text-[9px] font-black uppercase tracking-wider border border-green-500/20">
                     System Online
@@ -144,209 +148,316 @@
             </div>
         </div>
 
-        <!-- Main Content Dashboard -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            <!-- COLUMN 1: CONFIG & INPUT (Span 3) -->
-            <div class="lg:col-span-3 space-y-5">
-                <!-- Diameter Selection -->
-                <div class="glass-card rounded-2xl p-6">
-                    <h2 class="text-xl font-semibold text-white mb-4 flex items-center">
-                        <svg class="w-6 h-6 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
-                            </path>
-                        </svg>
-                        Select TMT Bar Diameter
-                    </h2>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="diameter-card glass-card rounded-xl p-3 border border-gray-700 bg-gray-800/20"
-                            data-diameter="8">
-                            <div class="text-center">
-                                <div class="text-xl font-bold text-white">8mm</div>
-                                <div class="text-[10px] text-cyan-400 font-bold uppercase mt-1">0.56-0.8 mm</div>
-                            </div>
-                        </div>
-                        <div class="diameter-card glass-card rounded-xl p-3 border border-gray-700 bg-gray-800/20"
-                            data-diameter="10">
-                            <div class="text-center">
-                                <div class="text-xl font-bold text-white">10mm</div>
-                                <div class="text-[10px] text-cyan-400 font-bold uppercase mt-1">0.7-1.0 mm</div>
-                            </div>
-                        </div>
-                        <div class="diameter-card glass-card rounded-xl p-3 border-2 border-blue-500/50 bg-blue-500/10 selected"
-                            data-diameter="12">
-                            <div class="text-center">
-                                <div class="text-xl font-bold text-white">12mm</div>
-                                <div class="text-[10px] text-white font-bold uppercase mt-1">0.84-1.2 mm</div>
-                            </div>
-                        </div>
-                        <div class="diameter-card glass-card rounded-xl p-3 border border-gray-700 bg-gray-800/20"
-                            data-diameter="16">
-                            <div class="text-center">
-                                <div class="text-xl font-bold text-white">16mm</div>
-                                <div class="text-[10px] text-cyan-400 font-bold uppercase mt-1">1.12-1.6 mm</div>
-                            </div>
-                        </div>
-                    </div>
+        <!-- LANDING PAGE -->
+        <div id="landingPage" class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
+            <!-- Ring Test Card -->
+            <div onclick="showSection('ringTestPage')"
+                class="glass-card rounded-2xl p-10 cursor-pointer hover:bg-white/5 transition duration-300 group relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                    <svg class="w-32 h-32 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                            d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
                 </div>
+                <h2 class="text-3xl font-bold text-white mb-2 group-hover:text-blue-400 transition">Ring Test</h2>
+                <p class="text-gray-400 mb-6">Analyze tempered martensite ring thickness and uniformity.</p>
+                <div class="flex items-center text-blue-400 font-semibold group-hover:translate-x-2 transition">
+                    Start Analysis <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                    </svg>
+                </div>
+            </div>
 
-                <!-- Upload Zone -->
-                <div class="glass-card rounded-2xl p-6">
-                    <h2 class="text-xl font-semibold text-white mb-4 flex items-center">
-                        <svg class="w-6 h-6 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
-                            </path>
-                        </svg>
-                        Upload Cross-Section Image
-                    </h2>
+            <!-- Rib Test Card -->
+            <div onclick="showSection('ribTestPage')"
+                class="glass-card rounded-2xl p-10 cursor-pointer hover:bg-white/5 transition duration-300 group relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                    <svg class="w-32 h-32 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                            d="M4 6h16M4 12h16m-7 6h7"></path>
+                    </svg>
+                </div>
+                <h2 class="text-3xl font-bold text-white mb-2 group-hover:text-purple-400 transition">Rib Test</h2>
+                <p class="text-gray-400 mb-6">Measure rib parameters: length, angle, height, and AR value.</p>
+                <div class="flex items-center text-purple-400 font-semibold group-hover:translate-x-2 transition">
+                    Start Analysis <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
 
-                    <div id="uploadZone" class="upload-zone rounded-xl p-8 text-center cursor-pointer">
-                        <svg class="w-16 h-16 mx-auto text-blue-400 mb-4" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
-                            </path>
-                        </svg>
-                        <p class="text-white font-medium mb-2">Drop image here or click to browse</p>
-                        <p class="text-gray-400 text-sm">Supports: JPG, PNG (Max 10MB)</p>
-                        <input type="file" id="fileInput" accept="image/*" class="hidden">
+        <!-- RING TEST PAGE (Detailed Analysis) -->
+        <div id="ringTestPage" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-white">Ring Test Analysis</h2>
+                <button onclick="showSection('landingPage')" class="text-gray-400 hover:text-white text-sm">← Back to
+                    Menu</button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <!-- COLUMN 1: CONFIG & INPUT (Span 3) -->
+                <div class="lg:col-span-3 space-y-5">
+                    <!-- Diameter Selection -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h2 class="text-xl font-semibold text-white mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-400" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
+                                </path>
+                            </svg>
+                            Select TMT Bar Diameter
+                        </h2>
+                        <div class="grid grid-cols-2 gap-3" id="ringDiameterOptions">
+                            <div class="diameter-card glass-card rounded-xl p-3 border border-gray-700 bg-gray-800/20"
+                                data-diameter="8">
+                                <div class="text-center">
+                                    <div class="text-xl font-bold text-white">8mm</div>
+                                    <div class="text-[10px] text-cyan-400 font-bold uppercase mt-1">0.56-0.8 mm</div>
+                                </div>
+                            </div>
+                            <div class="diameter-card glass-card rounded-xl p-3 border border-gray-700 bg-gray-800/20"
+                                data-diameter="10">
+                                <div class="text-center">
+                                    <div class="text-xl font-bold text-white">10mm</div>
+                                    <div class="text-[10px] text-cyan-400 font-bold uppercase mt-1">0.7-1.0 mm</div>
+                                </div>
+                            </div>
+                            <div class="diameter-card glass-card rounded-xl p-3 border-2 border-blue-500/50 bg-blue-500/10 selected"
+                                data-diameter="12">
+                                <div class="text-center">
+                                    <div class="text-xl font-bold text-white">12mm</div>
+                                    <div class="text-[10px] text-white font-bold uppercase mt-1">0.84-1.2 mm</div>
+                                </div>
+                            </div>
+                            <div class="diameter-card glass-card rounded-xl p-3 border border-gray-700 bg-gray-800/20"
+                                data-diameter="16">
+                                <div class="text-center">
+                                    <div class="text-xl font-bold text-white">16mm</div>
+                                    <div class="text-[10px] text-cyan-400 font-bold uppercase mt-1">1.12-1.6 mm</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Preview -->
-                    <div id="preview" class="mt-4 hidden">
-                        <img id="previewImage" class="rounded-xl w-full" alt="Preview">
-                        <button id="removeImage"
-                            class="mt-3 w-full py-2 px-4 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition">
-                            Remove Image
+                    <!-- Ring Upload Zone -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h2 class="text-xl font-semibold text-white mb-4 flex items-center">
+                            Upload Ring Image
+                        </h2>
+                        <div id="ringUploadZone" class="upload-zone rounded-xl p-8 text-center cursor-pointer">
+                            <svg class="w-16 h-16 mx-auto text-blue-400 mb-4" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
+                                </path>
+                            </svg>
+                            <p class="text-white font-medium mb-2">Drop image here or click</p>
+                            <input type="file" id="ringFileInput" accept="image/*" class="hidden">
+                        </div>
+                        <div id="ringPreview" class="mt-4 hidden">
+                            <img id="ringPreviewImage" class="rounded-xl w-full" alt="Preview">
+                        </div>
+                        <button id="ringAnalyzeBtn"
+                            class="btn-primary w-full mt-6 py-4 px-6 text-white font-semibold rounded-xl disabled:opacity-50"
+                            disabled>
+                            Analyze Ring Test
                         </button>
                     </div>
+                </div>
 
-                    <!-- Analyze Button -->
-                    <button id="analyzeBtn"
-                        class="btn-primary w-full mt-6 py-4 px-6 text-white font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled>
-                        <span class="flex items-center justify-center">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <!-- RESULTS COLUMNS (Same as before) -->
+                <div class="lg:col-span-4 h-full">
+                    <div id="ringResultsContent" class="hidden space-y-6">
+                        <!-- Level 1 -->
+                        <div class="glass-card rounded-2xl p-6">
+                            <h3 class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Level 1: Visual
+                                Analysis</h3>
+                            <div id="ringLevel1Results" class="space-y-3"></div>
+                        </div>
+                        <!-- Level 2 -->
+                        <div class="glass-card rounded-2xl p-6">
+                            <h3 class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Level 2:
+                                Dimensional</h3>
+                            <div id="ringLevel2Results" class="space-y-3"></div>
+                        </div>
+                    </div>
+                    <!-- Placeholder -->
+                    <div id="ringPlaceholderData"
+                        class="glass-card rounded-2xl p-12 text-center h-full flex flex-col justify-center items-center border border-dashed border-gray-700">
+                        <p class="text-gray-500 text-sm font-medium uppercase tracking-widest italic">Data pending</p>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-5 h-full">
+                    <div id="ringResultsVisual" class="hidden space-y-5 h-full flex flex-col">
+                        <div class="glass-card rounded-2xl p-5">
+                            <div id="ringStatusBadge" class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <div id="ringStatusIcon" class="mr-3 scale-90"></div>
+                                    <div>
+                                        <div id="ringStatusText" class="text-lg font-bold tracking-tight"></div>
+                                        <div id="ringStatusReason"
+                                            class="text-[9px] text-gray-500 font-bold uppercase tracking-widest"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass-card rounded-2xl p-4">
+                            <div
+                                class="relative rounded-xl overflow-hidden bg-black ring-1 ring-gray-800 max-h-[500px] flex items-center justify-center">
+                                <img id="ringDebugImage" class="max-w-full max-h-[500px] object-contain"
+                                    alt="Technical Map">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="ringPlaceholderVisual"
+                        class="glass-card rounded-2xl p-12 text-center h-full flex flex-col justify-center items-center border border-dashed border-gray-700 min-h-[400px]">
+                        <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest italic">Visual map
+                            pending</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIB TEST PAGE (New) -->
+        <div id="ribTestPage" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-white">Rib Test Analysis</h2>
+                <button onclick="showSection('landingPage')" class="text-gray-400 hover:text-white text-sm">← Back to
+                    Menu</button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <!-- Config Span 3 -->
+                <div class="lg:col-span-3 space-y-5">
+                    <!-- Diameter Selection (Same as Ring) -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h2 class="text-xl font-semibold text-white mb-4">Select TMT Diameter</h2>
+                        <div class="grid grid-cols-2 gap-3" id="ribDiameterOptions">
+                            <div class="diameter-card glass-card rounded-xl p-3 border border-gray-700 bg-gray-800/20"
+                                data-diameter="8">
+                                <div class="text-center font-bold text-white">8mm</div>
+                            </div>
+                            <div class="diameter-card glass-card rounded-xl p-3 border border-gray-700 bg-gray-800/20"
+                                data-diameter="10">
+                                <div class="text-center font-bold text-white">10mm</div>
+                            </div>
+                            <div class="diameter-card glass-card rounded-xl p-3 border-2 border-purple-500/50 bg-purple-500/10 selected"
+                                data-diameter="12">
+                                <div class="text-center font-bold text-white">12mm</div>
+                            </div>
+                            <div class="diameter-card glass-card rounded-xl p-3 border border-gray-700 bg-gray-800/20"
+                                data-diameter="16">
+                                <div class="text-center font-bold text-white">16mm</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rib Upload Zone -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h2 class="text-xl font-semibold text-white mb-4">Upload Rib Image</h2>
+                        <div id="ribUploadZone"
+                            class="upload-zone rounded-xl p-8 text-center cursor-pointer border-purple-500/30 hover:border-purple-500/60">
+                            <svg class="w-16 h-16 mx-auto text-purple-400 mb-4" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4">
+                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
                                 </path>
                             </svg>
-                            Analyze Ring Test
-                        </span>
-                    </button>
-                </div>
-
-                <!-- Loading State (Integrated into Config Col) -->
-                <div id="loadingState" class="glass-card rounded-2xl p-6 hidden mt-6">
-                    <div class="text-center">
-                        <div class="w-12 h-12 mx-auto mb-4">
-                            <svg class="animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                    stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                </path>
-                            </svg>
+                            <p class="text-white font-medium mb-2">Drop side-view image</p>
+                            <input type="file" id="ribFileInput" accept="image/*" class="hidden">
                         </div>
-                        <p class="text-white text-sm font-medium">Processing Image...</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- COLUMN 2: ANALYSIS DATA (Span 4) -->
-            <div class="lg:col-span-4 h-full">
-                <div id="resultsContent" class="hidden space-y-6">
-                    <!-- Level 1: Qualitative Analysis -->
-                    <div class="glass-card rounded-2xl p-6">
-                        <h3 class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Level 1: Color &
-                            Shape Analysis</h3>
-                        <div id="level1Results" class="space-y-3">
-                            <!-- Results will be inserted here -->
+                        <div id="ribPreview" class="mt-4 hidden">
+                            <img id="ribPreviewImage" class="rounded-xl w-full" alt="Preview">
                         </div>
-                    </div>
-
-                    <!-- Level 2: Dimensional Analysis -->
-                    <div class="glass-card rounded-2xl p-6">
-                        <h3 class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Level 2: Dimensional
-                            Analysis</h3>
-                        <div id="level2Results" class="space-y-3">
-                            <!-- Results will be inserted here -->
-                        </div>
+                        <button id="ribAnalyzeBtn"
+                            class="btn-primary w-full mt-6 py-4 px-6 text-white font-semibold rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 disabled:opacity-50"
+                            disabled>
+                            Analyze Rib Test
+                        </button>
                     </div>
                 </div>
 
-                <!-- Initial State Placeholder for Data -->
-                <div id="placeholderData"
-                    class="glass-card rounded-2xl p-12 text-center h-full flex flex-col justify-center items-center border border-dashed border-gray-700">
-                    <svg class="w-12 h-12 text-gray-800 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                        </path>
-                    </svg>
-                    <p class="text-gray-500 text-sm font-medium uppercase tracking-widest italic">Quantitative data
-                        pending</p>
-                </div>
-            </div>
+                <!-- Rib Results -->
+                <div class="lg:col-span-4 h-full">
+                    <div id="ribResultsContent" class="hidden space-y-6">
+                        <!-- AR Value Card -->
+                        <div class="glass-card rounded-2xl p-6 bg-purple-900/10 border-purple-500/20">
+                            <h3 class="text-purple-300 text-xs font-bold uppercase tracking-widest mb-2">Calculated AR
+                                Value</h3>
+                            <div class="text-4xl font-black text-white" id="arValueDisplay">0.00</div>
+                            <div class="text-[10px] text-gray-400 mt-1">AR = L × A × H × D</div>
+                        </div>
 
-            <!-- COLUMN 3: VISUALIZATION & STATUS (Span 5) -->
-            <div class="lg:col-span-5 h-full">
-                <div id="resultsVisual" class="hidden space-y-5 h-full flex flex-col">
-                    <!-- Status Hub Card -->
-                    <div class="glass-card rounded-2xl p-5">
-                        <!-- Unified Status Header -->
-                        <div id="statusBadge" class="flex items-center justify-between">
-                            <div class="flex items-center">
-                                <div id="statusIcon" class="mr-3 scale-90"></div>
-                                <div>
-                                    <div id="statusText" class="text-lg font-bold tracking-tight"></div>
-                                    <div id="statusReason"
-                                        class="text-[9px] text-gray-500 font-bold uppercase tracking-widest"></div>
+                        <!-- Parameters -->
+                        <div class="glass-card rounded-2xl p-6">
+                            <h3 class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Measurements</h3>
+                            <div id="ribParameters" class="space-y-4"></div>
+                        </div>
+                    </div>
+                    <!-- Placeholder -->
+                    <div id="ribPlaceholderData"
+                        class="glass-card rounded-2xl p-12 text-center h-full flex flex-col justify-center items-center border border-dashed border-gray-700">
+                        <p class="text-gray-500 text-sm font-medium uppercase tracking-widest italic">Data pending</p>
+                    </div>
+                </div>
+
+                <!-- Rib Visuals -->
+                <div class="lg:col-span-5 h-full">
+                    <div id="ribResultsVisual" class="hidden space-y-5 h-full flex flex-col">
+                        <div class="glass-card rounded-2xl p-5">
+                            <div id="ribStatusBadge" class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <div id="ribStatusIcon" class="mr-3 scale-90"></div>
+                                    <div>
+                                        <div id="ribStatusText" class="text-lg font-bold tracking-tight"></div>
+                                        <div id="ribStatusReason"
+                                            class="text-[9px] text-gray-500 font-bold uppercase tracking-widest"></div>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="text-right">
-                                <div class="text-[9px] text-gray-600 font-bold uppercase tracking-tight">Inspection Auth
-                                </div>
-                                <div class="text-[10px] text-gray-400 font-mono">T-772-B</div>
+                        </div>
+                        <div class="glass-card rounded-2xl p-4">
+                            <div
+                                class="relative rounded-xl overflow-hidden bg-black ring-1 ring-gray-800 max-h-[500px] flex items-center justify-center">
+                                <img id="ribDebugImage" class="max-w-full max-h-[500px] object-contain"
+                                    alt="Rib Analysis Map">
                             </div>
                         </div>
                     </div>
-
-                    <!-- Spectral View Card (Restricted Height) -->
-                    <div class="glass-card rounded-2xl p-4">
-                        <div class="flex items-center justify-between mb-3 px-1">
-                            <h3 class="text-gray-400 text-[10px] font-bold uppercase tracking-widest">Spectral Detection
-                                Map
-                            </h3>
-                            <span
-                                class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[9px] font-bold uppercase tracking-widest border border-blue-500/20">Active
-                                View</span>
-                        </div>
-                        <div
-                            class="relative rounded-xl overflow-hidden bg-black ring-1 ring-gray-800 max-h-[500px] flex items-center justify-center">
-                            <img id="debugImage" class="max-w-full max-h-[500px] object-contain" alt="Technical Map">
-                        </div>
+                    <div id="ribPlaceholderVisual"
+                        class="glass-card rounded-2xl p-12 text-center h-full flex flex-col justify-center items-center border border-dashed border-gray-700 min-h-[400px]">
+                        <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest italic">Visual map
+                            pending</p>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <!-- Initial State Placeholder for Visualization -->
-                <div id="placeholderVisual"
-                    class="glass-card rounded-2xl p-12 text-center h-full flex flex-col justify-center items-center border border-dashed border-gray-700 min-h-[400px]">
-                    <svg class="w-10 h-10 text-gray-800 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay"
+            class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center z-50">
+            <div class="text-center">
+                <div class="w-16 h-16 mx-auto mb-4">
+                    <svg class="animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                        </circle>
+                        <path class="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
                         </path>
                     </svg>
-                    <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest italic">Visual map pending
-                    </p>
                 </div>
+                <p class="text-white text-lg font-medium">Processing Analysis...</p>
+                <p class="text-gray-400 text-sm mt-2">Running AI Models (YOLO + SAM + OpenCV)</p>
             </div>
         </div>
     </div>
 
-    <script src="/static/app.js?v=1.1"></script>
+    <script src="/static/app.js?v=2.0"></script>
 </body>
 
 </html>

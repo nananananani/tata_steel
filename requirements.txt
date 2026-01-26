@@ -7,3 +7,6 @@ Pillow>=10.3.0
 pydantic>=2.5.0
 requests>=2.31.0
 matplotlib>=3.8.0
+ultralytics
+torch
+git+https://github.com/facebookresearch/segment-anything.git

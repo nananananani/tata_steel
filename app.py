@@ -34,12 +34,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Base directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
+
 # Create necessary directories
-os.makedirs("static", exist_ok=True)
-os.makedirs("uploads", exist_ok=True)
+os.makedirs(STATIC_DIR, exist_ok=True)
+os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 # Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 # ========== RESPONSE MODELS ==========
@@ -75,7 +80,7 @@ def save_upload_file(upload_file: UploadFile) -> str:
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"upload_{timestamp}_{upload_file.filename}"
-    filepath = os.path.join("uploads", filename)
+    filepath = os.path.join(UPLOADS_DIR, filename)
     
     with open(filepath, "wb") as buffer:
         shutil.copyfileobj(upload_file.file, buffer)
@@ -116,7 +121,7 @@ def load_image_from_upload(upload_file: UploadFile) -> np.ndarray:
 @app.get("/")
 async def root():
     """Serve the web interface"""
-    return FileResponse("static/index.html")
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
 @app.get("/health")
@@ -245,26 +250,24 @@ async def rib_test_endpoint(
 ):
     """
     Perform rib test on uploaded image
-    
-    Note: This endpoint will be implemented by your teammate
-    
-    Args:
-        file: Image file
-        diameter: TMT bar diameter in mm
-    
-    Returns:
-        Rib test results
+    Uses YOLO + SAM + OpenCV pipeline
     """
-    # TODO: Implement rib test integration
-    # from rib_pipeline import run_rib_test
-    # image = load_image_from_upload(file)
-    # results = run_rib_test(image, diameter_mm=diameter)
-    
-    return {
-        "status": "NOT_IMPLEMENTED",
-        "message": "Rib test endpoint will be implemented by teammate",
-        "timestamp": datetime.now().isoformat()
-    }
+    try:
+        # Validate file
+        if not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="File must be an image")
+
+        # Load image
+        image = load_image_from_upload(file)
+        
+        # Run Rib Pipeline
+        from rib_pipeline import run_rib_test
+        results = run_rib_test(image, diameter_mm=diameter)
+        
+        return results
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Rib Test Error: {str(e)}")
 
 
 @app.get("/static/{filename}")
@@ -278,7 +281,7 @@ async def get_debug_image(filename: str):
     Returns:
         Image file
     """
-    filepath = os.path.join("static", filename)
+    filepath = os.path.join(STATIC_DIR, filename)
     
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="Image not found")
@@ -307,8 +310,8 @@ async def cleanup_old_files(max_age_hours: int = 24):
     deleted_count = 0
     
     # Clean static directory
-    for filename in os.listdir("static"):
-        filepath = os.path.join("static", filename)
+    for filename in os.listdir(STATIC_DIR):
+        filepath = os.path.join(STATIC_DIR, filename)
         if os.path.isfile(filepath):
             file_age = current_time - os.path.getmtime(filepath)
             if file_age > max_age_seconds:
@@ -316,8 +319,8 @@ async def cleanup_old_files(max_age_hours: int = 24):
                 deleted_count += 1
     
     # Clean uploads directory
-    for filename in os.listdir("uploads"):
-        filepath = os.path.join("uploads", filename)
+    for filename in os.listdir(UPLOADS_DIR):
+        filepath = os.path.join(UPLOADS_DIR, filename)
         if os.path.isfile(filepath):
             file_age = current_time - os.path.getmtime(filepath)
             if file_age > max_age_seconds:
