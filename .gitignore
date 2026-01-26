@@ -51,7 +51,17 @@ Thumbs.db
 .coverage
 htmlcov/
 
+# AI Models
+*.pth
+*.pt
+rebar_detection.pt
+
 # Temporary files
 *.tmp
 test_ring.jpg
 webcam_capture.jpg
+*.jpg
+*.png
+!static/*.html
+!static/*.css
+!static/*.js

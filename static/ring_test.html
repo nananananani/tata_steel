@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ring Test | Tata Steel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+</head>
+
+<body class="p-4 md:p-8">
+    <div class="max-w-[1400px] mx-auto">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row items-center justify-between mb-6 border-b border-gray-800/50 pb-6">
+            <a href="/" class="block">
+                <h1 class="text-3xl font-bold text-white mb-1">Tata Steel</h1>
+                <p class="text-[10px] text-gray-500 uppercase tracking-[0.2em] font-black">TMT Analysis Dashboard</p>
+            </a>
+            <div class="flex items-center gap-4 mt-4 md:mt-0">
+                <a href="/" class="text-gray-400 hover:text-white text-sm font-medium">Home</a>
+                <span
+                    class="px-2 py-1 rounded-md bg-green-500/10 text-green-400 text-[9px] font-black uppercase tracking-wider border border-green-500/20">System
+                    Online</span>
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-white">Ring Test Analysis</h2>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <!-- COLUMN 1: CONFIG & INPUT (Span 3) -->
+            <div class="lg:col-span-3 space-y-5">
+                <div class="glass-card rounded-2xl p-6">
+                    <h2 class="text-xl font-semibold text-white mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
+                            </path>
+                        </svg>
+                        Select TMT Bar Diameter
+                    </h2>
+                    <div class="grid grid-cols-2 gap-3" id="ringDiameterOptions">
+                        <div class="diameter-card rounded-xl p-3 text-center" data-diameter="8">
+                            <div class="text-xl font-bold text-white">8mm</div>
+                            <div class="text-[10px] text-cyan-400 font-bold uppercase mt-1">0.56-0.8 mm</div>
+                        </div>
+                        <div class="diameter-card rounded-xl p-3 text-center" data-diameter="10">
+                            <div class="text-xl font-bold text-white">10mm</div>
+                            <div class="text-[10px] text-cyan-400 font-bold uppercase mt-1">0.7-1.0 mm</div>
+                        </div>
+                        <div class="diameter-card rounded-xl p-3 text-center selected" data-diameter="12">
+                            <div class="text-xl font-bold text-white">12mm</div>
+                            <div class="text-[10px] text-white font-bold uppercase mt-1">0.84-1.2 mm</div>
+                        </div>
+                        <div class="diameter-card rounded-xl p-3 text-center" data-diameter="16">
+                            <div class="text-xl font-bold text-white">16mm</div>
+                            <div class="text-[10px] text-cyan-400 font-bold uppercase mt-1">1.12-1.6 mm</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl p-6">
+                    <h2 class="text-xl font-semibold text-white mb-4">Upload Ring Image</h2>
+                    <div id="ringUploadZone" class="upload-zone rounded-xl p-8 text-center cursor-pointer">
+                        <svg class="w-16 h-16 mx-auto text-blue-400 mb-4" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
+                            </path>
+                        </svg>
+                        <p class="text-white font-medium mb-2">Drop image here or click</p>
+                        <input type="file" id="ringFileInput" accept="image/*" class="hidden">
+                    </div>
+                    <div id="ringPreview" class="mt-4 hidden">
+                        <img id="ringPreviewImage" class="rounded-xl w-full border border-gray-700" alt="Preview">
+                        <button id="ringRemoveImage"
+                            class="mt-3 w-full py-2 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-sm font-bold rounded-xl transition border border-red-500/20">Remove
+                            Image</button>
+                    </div>
+                    <button id="ringAnalyzeBtn"
+                        class="btn-primary w-full mt-6 py-4 px-6 text-white font-semibold rounded-xl disabled:opacity-50"
+                        disabled>Analyze Ring Test</button>
+                </div>
+            </div>
+
+            <!-- COLUMN 2: RESULTS (Span 4) -->
+            <div class="lg:col-span-4 h-full">
+                <div id="ringPlaceholderData"
+                    class="glass-card rounded-2xl p-12 text-center h-full flex flex-col justify-center items-center border border-dashed border-gray-700">
+                    <p class="text-gray-500 text-sm font-medium uppercase tracking-widest italic">Awaiting analysis</p>
+                </div>
+                <div id="ringResultsContent" class="hidden space-y-6">
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Level 1: Color &
+                            Shape Analysis</h3>
+                        <div id="ringLevel1Results"></div>
+                    </div>
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Level 2: Dimensional
+                            Analysis</h3>
+                        <div id="ringLevel2Results"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLUMN 3: VISUAL (Span 5) -->
+            <div class="lg:col-span-5 h-full">
+                <div id="ringPlaceholderVisual"
+                    class="glass-card rounded-2xl p-12 text-center h-full flex flex-col justify-center items-center border border-dashed border-gray-700 min-h-[400px]">
+                    <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest italic">Visual data pending
+                    </p>
+                </div>
+                <div id="ringResultsVisual" class="hidden space-y-5 h-full flex flex-col">
+                    <div class="glass-card rounded-2xl p-5">
+                        <div id="ringStatusHeader" class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div id="ringStatusIcon" class="mr-4"></div>
+                                <div>
+                                    <h2 id="ringStatusText" class="text-2xl font-bold tracking-tight"></h2>
+                                    <p id="ringStatusReason"
+                                        class="text-[10px] text-gray-500 font-bold uppercase tracking-widest"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass-card rounded-2xl p-4 flex-grow">
+                        <div
+                            class="relative rounded-xl overflow-hidden bg-black ring-1 ring-gray-800 h-full flex items-center justify-center min-h-[400px]">
+                            <img id="ringDebugImage" class="max-w-full max-h-full object-contain" alt="Analysis Map">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cropper Modal -->
+        <div id="cropperModal" class="modal-overlay">
+            <div class="p-6 flex justify-between items-center border-b border-gray-800 bg-gray-900/50">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Refine Rebar Sample</h2>
+                    <p class="text-xs text-blue-400 uppercase tracking-widest font-black mt-1">Isolate the test segment
+                    </p>
+                </div>
+                <div class="flex gap-4">
+                    <button id="cancelCrop"
+                        class="px-6 py-2.5 rounded-xl bg-gray-800 text-gray-400 hover:text-white transition font-bold text-sm">Cancel</button>
+                    <button id="saveCrop"
+                        class="px-8 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition font-bold text-sm shadow-xl shadow-blue-500/20">Apply
+                        Crop</button>
+                </div>
+            </div>
+            <div class="flex-grow relative overflow-hidden flex items-center justify-center p-12">
+                <img id="cropperImage" class="max-w-full max-h-full">
+            </div>
+        </div>
+
+        <!-- Loader -->
+        <div id="loadingOverlay"
+            class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex-col items-center justify-center z-[2000]">
+            <div class="loading-spinner mb-4"></div>
+            <p class="text-white text-lg font-medium">Processing Analysis...</p>
+            <p class="text-gray-400 text-sm mt-2">Executing Computer Vision Pipeline</p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script src="/static/common.js"></script>
+    <script src="/static/ring_test.js?v=1.1"></script>
+</body>
+
+</html>

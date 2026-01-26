@@ -120,8 +120,20 @@ def load_image_from_upload(upload_file: UploadFile) -> np.ndarray:
 
 @app.get("/")
 async def root():
-    """Serve the web interface"""
+    """Serve the home page"""
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/ring-test")
+async def ring_test_page():
+    """Serve the ring test module"""
+    return FileResponse(os.path.join(STATIC_DIR, "ring_test.html"))
+
+
+@app.get("/rib-test")
+async def rib_test_page():
+    """Serve the rib test module"""
+    return FileResponse(os.path.join(STATIC_DIR, "rib_test.html"))
 
 
 @app.get("/health")

@@ -7,6 +7,8 @@ let ringDiameter = 12;
 let ribDiameter = 12;
 let ringFile = null;
 let ribFile = null;
+let cropper = null;
+let cropperTarget = null; // 'ring' or 'rib'
 
 // Global Elements (initialized in DOMContentLoaded)
 let ringElements = {};
@@ -81,6 +83,7 @@ function initializeRingElements() {
         fileInput: document.getElementById('ringFileInput'),
         preview: document.getElementById('ringPreview'),
         previewImage: document.getElementById('ringPreviewImage'),
+        removeImageBtn: document.getElementById('ringRemoveImage'),
         analyzeBtn: document.getElementById('ringAnalyzeBtn'),
         resultsContent: document.getElementById('ringResultsContent'),
         resultsVisual: document.getElementById('ringResultsVisual'),
@@ -139,6 +142,23 @@ function setupRingTest() {
         if (ringElements.analyzeBtn) ringElements.analyzeBtn.disabled = false;
     });
 
+    // Remove Image
+    if (ringElements.removeImageBtn) {
+        ringElements.removeImageBtn.addEventListener('click', () => {
+            ringFile = null;
+            ringElements.fileInput.value = '';
+            ringElements.preview.classList.add('hidden');
+            ringElements.uploadZone.classList.remove('hidden');
+            ringElements.analyzeBtn.disabled = true;
+
+            // Hide results
+            ringElements.resultsContent.classList.add('hidden');
+            ringElements.resultsVisual.classList.add('hidden');
+            ringElements.placeholderData.classList.remove('hidden');
+            ringElements.placeholderVisual.classList.remove('hidden');
+        });
+    }
+
     // Analyze Action
     if (ringElements.analyzeBtn) {
         ringElements.analyzeBtn.addEventListener('click', async () => {
@@ -153,33 +173,58 @@ function displayRingResults(result) {
     const isPass = result.status === 'PASS';
     updateStatus(ringElements, isPass, result.reason);
 
-    // Level 1
+    // Level 1: Color & Shape Analysis
     if (result.level1 && ringElements.level1Results) {
         ringElements.level1Results.innerHTML = `
-            <div class="bg-gray-800/50 rounded-xl p-4 space-y-3">
-                ${createMetricRow('Layers Detected', result.level1.regions_visible)}
-                ${createMetricRow('Outer Ring', result.level1.ring_continuous)}
-                ${createMetricRow('Concentricity', result.level1.concentric)}
-                ${createMetricRow('Uniformity', result.level1.thickness_uniform)}
+            <div class="space-y-4">
+                <div class="bg-gray-800/30 rounded-xl p-4 space-y-3 border border-gray-700/50">
+                    ${createMetricRow('Layers Detected', result.level1.regions_visible)}
+                    ${createMetricRow('Outer Ring', result.level1.ring_continuous)}
+                    ${createMetricRow('Concentricity', result.level1.concentric)}
+                    ${createMetricRow('Thickness Uniformity', result.level1.thickness_uniform)}
+                </div>
             </div>
         `;
     }
 
-    // Level 2
+    // Level 2: Dimensional Analysis
     if (result.level2 && ringElements.level2Results) {
         const t = result.level2.thickness_mm;
         const low = ringDiameter * 0.07;
         const high = ringDiameter * 0.10;
 
         ringElements.level2Results.innerHTML = `
-            <div class="bg-gray-800/50 rounded-xl p-4">
-                <div class="flex justify-between mb-2">
-                    <span class="text-gray-400 text-sm">Measured Thickness</span>
-                    <span class="text-white font-bold">${t.toFixed(2)} mm</span>
+            <div class="space-y-6">
+                <!-- Observations -->
+                <div>
+                     <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3">Observations (in mm)</p>
+                     <div class="space-y-2 bg-gray-800/30 rounded-xl p-4 border border-gray-700/50">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-gray-400">Diameter of rebar, D</span>
+                            <span class="text-white font-bold">${ringDiameter} mm</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-gray-400">Measured thickness, t<sub>TM</sub></span>
+                            <span class="text-white font-bold">${t.toFixed(2)} mm</span>
+                        </div>
+                     </div>
                 </div>
-                <div class="space-y-2 mt-4">
-                    ${createMetricRow(`≥ ${low.toFixed(2)}mm`, t >= low)}
-                    ${createMetricRow(`≤ ${high.toFixed(2)}mm`, t <= high)}
+
+                <!-- Acceptance Criteria -->
+                <div>
+                     <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3">L2 Acceptance Criteria</p>
+                     <div class="space-y-3 bg-gray-800/30 rounded-xl p-4 border border-gray-700/50">
+                        ${createMetricRow(`Is ${t.toFixed(2)}mm ≥ ${low.toFixed(2)}mm ?`, t >= low)}
+                        ${createMetricRow(`Is ${t.toFixed(2)}mm ≤ ${high.toFixed(2)}mm ?`, t <= high)}
+                     </div>
+                </div>
+
+                <!-- Final Decision -->
+                <div class="pt-4 border-t border-gray-800 flex justify-between items-center">
+                    <span class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Decision</span>
+                    <span class="px-3 py-1 rounded bg-${isPass ? 'green' : 'red'}-500/10 text-${isPass ? 'green' : 'red'}-400 text-[10px] font-black uppercase tracking-widest border border-${isPass ? 'green' : 'red'}-500/20">
+                        ${isPass ? 'Accept Rebar Lot' : 'Reject Rebar Lot'}
+                    </span>
                 </div>
             </div>
         `;
@@ -211,8 +256,7 @@ function setupRibTest() {
 
     // File Upload
     setupFileUpload(ribElements, file => {
-        ribFile = file;
-        if (ribElements.analyzeBtn) ribElements.analyzeBtn.disabled = false;
+        openCropper(file, 'rib');
     });
 
     // Analyze Action
@@ -221,6 +265,81 @@ function setupRibTest() {
             if (!ribFile) return;
             await runAnalysis('/api/rib-test', ribFile, ribDiameter, displayRibResults);
         });
+    }
+}
+
+// ==========================================
+// CROPPER SYSTEM
+// ==========================================
+function openCropper(file, target) {
+    const modal = document.getElementById('cropperModal');
+    const image = document.getElementById('cropperImage');
+
+    if (!modal || !image) return;
+
+    cropperTarget = target;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        image.src = e.target.result;
+        modal.classList.remove('hidden');
+
+        if (cropper) cropper.destroy();
+
+        cropper = new Cropper(image, {
+            viewMode: 2,
+            dragMode: 'move',
+            autoCropArea: 0.8,
+            restore: false,
+            guides: true,
+            center: true,
+            highlight: false,
+            cropBoxMovable: true,
+            cropBoxResizable: true,
+            toggleDragModeOnDblclick: false,
+        });
+    };
+    reader.readAsDataURL(file);
+}
+
+// Cropper UI Controls
+document.getElementById('saveCrop')?.addEventListener('click', () => {
+    if (!cropper) return;
+
+    cropper.getCroppedCanvas({
+        maxWidth: 2000,
+        maxHeight: 2000,
+        fillColor: '#000',
+    }).toBlob((blob) => {
+        const file = new File([blob], "cropped_rebar.jpg", { type: "image/jpeg" });
+
+        if (cropperTarget === 'rib') {
+            ribFile = file;
+            ribElements.previewImage.src = URL.createObjectURL(blob);
+            ribElements.uploadZone.classList.add('hidden');
+            ribElements.preview.classList.remove('hidden');
+            ribElements.analyzeBtn.disabled = false;
+        } else {
+            ringFile = file;
+            ringElements.previewImage.src = URL.createObjectURL(blob);
+            ringElements.uploadZone.classList.add('hidden');
+            ringElements.preview.classList.remove('hidden');
+            ringElements.analyzeBtn.disabled = false;
+        }
+
+        closeCropper();
+    }, 'image/jpeg', 0.9);
+});
+
+document.getElementById('cancelCrop')?.addEventListener('click', closeCropper);
+document.getElementById('rotateLeft')?.addEventListener('click', () => cropper?.rotate(-90));
+document.getElementById('zoomIn')?.addEventListener('click', () => cropper?.zoom(0.1));
+document.getElementById('resetCrop')?.addEventListener('click', () => cropper?.reset());
+
+function closeCropper() {
+    document.getElementById('cropperModal').classList.add('hidden');
+    if (cropper) {
+        cropper.destroy();
+        cropper = null;
     }
 }
 
@@ -234,25 +353,28 @@ function displayRibResults(result) {
     }
 
     // Parameters
-    if (result.measurements && ribElements.parameters) {
-        const m = result.measurements;
+    if (result.rib_count !== undefined && ribElements.parameters) {
         ribElements.parameters.innerHTML = `
             <div class="bg-gray-800/50 rounded-xl p-4 space-y-3">
                 <div class="flex justify-between">
                      <span class="text-gray-400 text-sm">No. of Ribs</span>
-                     <span class="text-white font-bold">${m.num_ribs}</span>
+                     <span class="text-white font-bold">${result.rib_count}</span>
                 </div>
                 <div class="flex justify-between">
                      <span class="text-gray-400 text-sm">Avg Length</span>
-                     <span class="text-white font-bold">${m.rib_length.toFixed(2)} px</span>
+                     <span class="text-white font-bold">${result.avg_length_mm} mm</span>
                 </div>
                 <div class="flex justify-between">
                      <span class="text-gray-400 text-sm">Avg Angle</span>
-                     <span class="text-white font-bold">${m.rib_angle.toFixed(1)}°</span>
+                     <span class="text-white font-bold">${result.avg_angle_deg}°</span>
                 </div>
-                 <div class="flex justify-between">
+                <div class="flex justify-between">
                      <span class="text-gray-400 text-sm">Avg Height</span>
-                     <span class="text-white font-bold">${m.rib_height.toFixed(2)} px</span>
+                     <span class="text-white font-bold">${result.avg_height_mm} mm</span>
+                </div>
+                <div class="flex justify-between">
+                     <span class="text-gray-400 text-sm">Avg Spacing</span>
+                     <span class="text-white font-bold">${result.avg_spacing_mm} mm</span>
                 </div>
             </div>
         `;
