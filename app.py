@@ -1,0 +1,346 @@
+"""
+FastAPI Application for Tata Steel Rebar Testing
+Provides endpoints for both Rib Test and Ring Test
+"""
+
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional, Dict
+import cv2
+import numpy as np
+import os
+import shutil
+from datetime import datetime
+
+# Import test pipelines
+from ring_pipeline import run_ring_test
+
+# Initialize FastAPI app
+app = FastAPI(
+    title="Tata Steel Rebar Testing API",
+    description="API for automated TMT bar quality inspection - Rib Test and Ring Test",
+    version="1.0.0"
+)
+
+# CORS middleware for frontend integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure appropriately for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Create necessary directories
+os.makedirs("static", exist_ok=True)
+os.makedirs("uploads", exist_ok=True)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+# ========== RESPONSE MODELS ==========
+
+class RingTestResponse(BaseModel):
+    """Response model for ring test"""
+    status: str
+    reason: str
+    level1: Optional[Dict] = None
+    level2: Optional[Dict] = None
+    debug_image_url: Optional[str] = None
+    timestamp: str
+
+
+class ThicknessStandard(BaseModel):
+    """Thickness standard for a diameter"""
+    diameter_mm: int
+    min_thickness_mm: float
+    max_thickness_mm: float
+
+
+# ========== HELPER FUNCTIONS ==========
+
+def save_upload_file(upload_file: UploadFile) -> str:
+    """
+    Save uploaded file temporarily
+    
+    Args:
+        upload_file: FastAPI UploadFile object
+    
+    Returns:
+        Path to saved file
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"upload_{timestamp}_{upload_file.filename}"
+    filepath = os.path.join("uploads", filename)
+    
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(upload_file.file, buffer)
+    
+    return filepath
+
+
+def load_image_from_upload(upload_file: UploadFile) -> np.ndarray:
+    """
+    Load image from uploaded file
+    
+    Args:
+        upload_file: FastAPI UploadFile object
+    
+    Returns:
+        BGR image as NumPy array
+    """
+    # Save file temporarily
+    filepath = save_upload_file(upload_file)
+    
+    # Read image
+    image = cv2.imread(filepath)
+    
+    # Clean up temporary file
+    try:
+        os.remove(filepath)
+    except:
+        pass
+    
+    if image is None:
+        raise HTTPException(status_code=400, detail="Invalid image file")
+    
+    return image
+
+
+# ========== API ENDPOINTS ==========
+
+@app.get("/")
+async def root():
+    """Serve the web interface"""
+    return FileResponse("static/index.html")
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+@app.get("/api/standards")
+async def get_thickness_standards():
+    """
+    Get thickness standards for all TMT bar diameters
+    
+    Returns:
+        List of thickness standards
+    """
+    from utils import THICKNESS_STANDARDS
+    
+    standards = []
+    for diameter, values in THICKNESS_STANDARDS.items():
+        standards.append({
+            "diameter_mm": diameter,
+            "min_thickness_mm": values["min"],
+            "max_thickness_mm": values["max"]
+        })
+    
+    return {
+        "standards": standards,
+        "unit": "millimeters"
+    }
+
+
+@app.get("/api/standards/{diameter}")
+async def get_diameter_standard(diameter: int):
+    """
+    Get thickness standard for specific diameter
+    
+    Args:
+        diameter: TMT bar diameter in mm
+    
+    Returns:
+        Thickness standard for the diameter
+    """
+    from utils import get_thickness_standard
+    
+    try:
+        standard = get_thickness_standard(diameter)
+        return {
+            "diameter_mm": diameter,
+            "min_thickness_mm": standard["min"],
+            "max_thickness_mm": standard["max"]
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/ring-test", response_model=RingTestResponse)
+async def ring_test_endpoint(
+    file: UploadFile = File(..., description="Image file of TMT bar cross-section"),
+    diameter: float = Form(..., description="TMT bar diameter in mm (any positive value)")
+):
+    """
+    Perform ring test on uploaded image
+    Based on official Tata Steel TM-Ring test specification
+    
+    Args:
+        file: Image file (JPEG, PNG)
+        diameter: TMT bar diameter in mm (any positive value)
+    
+    Returns:
+        Ring test results with status, measurements, and debug image
+    """
+    # Validate diameter
+    if diameter <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid diameter: {diameter}. Must be positive"
+        )
+    
+    # Validate file type
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=400,
+            detail="File must be an image (JPEG, PNG, etc.)"
+        )
+    
+    try:
+        # Load image
+        image = load_image_from_upload(file)
+        
+        # STANDARD STABLE PIPELINE (Contour-based)
+        # Reverting to the version that the user found most reliable.
+        # SAM is kept as an optional import but not used for production analysis.
+        results = run_ring_test(image, diameter_mm=diameter)
+        
+        # Prepare response
+        debug_image_url = results.get("debug_image_url")
+        if not debug_image_url and results.get("debug_image_path"):
+            debug_image_url = f"/static/{os.path.basename(results['debug_image_path'])}"
+        
+        response = RingTestResponse(
+            status=results["status"],
+            reason=results["reason"],
+            level1=results.get("level1"),
+            level2=results.get("level2"),
+            debug_image_url=debug_image_url,
+            timestamp=datetime.now().isoformat()
+        )
+        
+        return response
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing image: {str(e)}"
+        )
+
+
+@app.post("/api/rib-test")
+async def rib_test_endpoint(
+    file: UploadFile = File(..., description="Image file of TMT bar"),
+    diameter: int = Form(..., description="TMT bar diameter in mm")
+):
+    """
+    Perform rib test on uploaded image
+    
+    Note: This endpoint will be implemented by your teammate
+    
+    Args:
+        file: Image file
+        diameter: TMT bar diameter in mm
+    
+    Returns:
+        Rib test results
+    """
+    # TODO: Implement rib test integration
+    # from rib_pipeline import run_rib_test
+    # image = load_image_from_upload(file)
+    # results = run_rib_test(image, diameter_mm=diameter)
+    
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "Rib test endpoint will be implemented by teammate",
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+@app.get("/static/{filename}")
+async def get_debug_image(filename: str):
+    """
+    Serve debug images
+    
+    Args:
+        filename: Debug image filename
+    
+    Returns:
+        Image file
+    """
+    filepath = os.path.join("static", filename)
+    
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    return FileResponse(filepath)
+
+
+# ========== CLEANUP ENDPOINT (Optional) ==========
+
+@app.delete("/api/cleanup")
+async def cleanup_old_files(max_age_hours: int = 24):
+    """
+    Clean up old debug images and uploads
+    
+    Args:
+        max_age_hours: Maximum age of files to keep (default: 24 hours)
+    
+    Returns:
+        Cleanup statistics
+    """
+    import time
+    
+    current_time = time.time()
+    max_age_seconds = max_age_hours * 3600
+    
+    deleted_count = 0
+    
+    # Clean static directory
+    for filename in os.listdir("static"):
+        filepath = os.path.join("static", filename)
+        if os.path.isfile(filepath):
+            file_age = current_time - os.path.getmtime(filepath)
+            if file_age > max_age_seconds:
+                os.remove(filepath)
+                deleted_count += 1
+    
+    # Clean uploads directory
+    for filename in os.listdir("uploads"):
+        filepath = os.path.join("uploads", filename)
+        if os.path.isfile(filepath):
+            file_age = current_time - os.path.getmtime(filepath)
+            if file_age > max_age_seconds:
+                os.remove(filepath)
+                deleted_count += 1
+    
+    return {
+        "deleted_files": deleted_count,
+        "max_age_hours": max_age_hours,
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+# ========== RUN SERVER ==========
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    print("=" * 60)
+    print("🏭 Tata Steel Rebar Testing API")
+    print("=" * 60)
+    print("Starting server on http://localhost:8000")
+    print("API Documentation: http://localhost:8000/docs")
+    print("=" * 60)
+    
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
