@@ -258,11 +258,11 @@ async def ring_test_endpoint(
 @app.post("/api/rib-test")
 async def rib_test_endpoint(
     file: UploadFile = File(..., description="Image file of TMT bar"),
-    diameter: int = Form(..., description="TMT bar diameter in mm")
+    diameter: float = Form(..., description="TMT bar diameter in mm")
 ):
     """
-    Perform rib test on uploaded image
-    Uses YOLO + SAM + OpenCV pipeline
+    Perform rib test on uploaded image.
+    Standalone module for longitudinal rebar analysis.
     """
     try:
         # Validate file
@@ -272,14 +272,14 @@ async def rib_test_endpoint(
         # Load image
         image = load_image_from_upload(file)
         
-        # Run Rib Pipeline
+        # Run Rib Pipeline (New Architecture Placeholder)
         from rib_pipeline import run_rib_test
         results = run_rib_test(image, diameter_mm=diameter)
         
         return results
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Rib Test Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Rib Test Backend Error: {str(e)}")
 
 
 @app.get("/static/{filename}")
@@ -358,4 +358,4 @@ if __name__ == "__main__":
     print("API Documentation: http://localhost:8000/docs")
     print("=" * 60)
     
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=8001, reload=True)

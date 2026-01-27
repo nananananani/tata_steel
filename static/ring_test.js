@@ -97,22 +97,18 @@ function displayResults(data, elements) {
                         <span class="text-sm text-white font-bold">${currentDiameter} mm</span>
                     </div>
                     <div class="flex justify-between items-center">
-                        <span class="text-xs text-gray-400">Measured thickness, t<sub>TM</sub></span>
+                        <span class="text-xs text-gray-400">Avg Thickness, t<sub>TM</sub></span>
                         <span class="text-sm text-white font-bold">${t.toFixed(2)} mm</span>
                     </div>
-                    <div class="flex justify-between items-center pt-2 mt-2 border-t border-white/5">
-                        <span class="text-xs text-gray-400">Min Range</span>
-                        <span class="text-sm text-white font-medium">${low.toFixed(2)} mm</span>
-                    </div>
                     <div class="flex justify-between items-center">
-                        <span class="text-xs text-gray-400">Max Range</span>
-                        <span class="text-sm text-white font-medium">${high.toFixed(2)} mm</span>
+                        <span class="text-xs text-gray-400">Thickness Range</span>
+                        <span class="text-sm text-blue-400 font-bold">${data.level2.thickness_mm_min.toFixed(2)} — ${data.level2.thickness_mm_max.toFixed(2)} mm</span>
                     </div>
                     <div class="mt-4 pt-4 border-t border-white/5">
                         <div class="flex justify-between items-center bg-blue-500/10 p-4 rounded-xl border border-blue-500/20">
                             <div class="flex flex-col">
                                 <span class="text-[9px] text-blue-300 font-black uppercase tracking-widest mb-0.5">Target Window</span>
-                                <span class="text-[10px] text-gray-500 font-medium italic">Acceptance Range</span>
+                                <span class="text-[10px] text-gray-500 font-medium italic">Requirement: 0.07D — 0.10D</span>
                             </div>
                             <span class="text-lg font-black text-blue-400 tracking-tighter">${low.toFixed(2)} — ${high.toFixed(2)} <span class="text-[10px] text-blue-500/50 ml-0.5">mm</span></span>
                         </div>

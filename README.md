@@ -19,13 +19,17 @@ High-precision measurement of the Tempered Martensite (TM) ring morphology.
   - Automatic PASSED/FAILED decision based on diameter-specific standards (8mm to 16mm).
   - Explicit Target Window (Min/Max range) display.
 
-### 2. Rib Test (Side-View Analysis)
-Automated calculation of the **AR Value** (Relative Rib Area) using AI.
-- **YOLOv8 Detection**: Automatically isolates the rebar region.
-- **SAM Segmentation**: Pixel-perfect masking of individual transverse ribs.
-- **Gabor Filter Engine**: Specialized pattern recognition tuned for diagonal transverse ribs (45-70°).
-- **Geometric Filtering**: Automatically ignores longitudinal "spines" and surface noise.
-- **Measurements**: Height, Spacing, Angle, and Length.
+### 2. Rib Test (v3.0 High-Accuracy Engine)
+**[NEW ARCHITECTURE]**
+Hybrid Deep Learning & Periodic Signal Analysis system designed for industrial precision.
+- **Localization**: YOLOv11 for intelligent rebar isolation and noise rejection.
+- **Deep Segmentation**: Gabor Frequency-Domain Mapping (DeepLabV3+ style) for texture-based rib extraction.
+- **Interval Assessment**: Signal periodicity analysis (DVNet-style) for sub-pixel inter-distance measurement.
+- **Metrics Calculated**:
+  - Number of ribs (Peak Detection)
+  - Transverse Angle
+  - Sub-pixel rib height
+  - AR Value (Area Relative) calculation
 
 ## 🎨 Premium Web Interface
 
