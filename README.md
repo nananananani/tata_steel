@@ -1,51 +1,45 @@
 # Tata Steel | Automated Rebar Testing Suite 🏭
 
-A premium, AI-driven quality inspection system for TMT (Thermo-Mechanically Treated) bars, specifically designed for Tata Steel's high-precision standards.
+A premium, high-precision quality inspection system for TMT (Thermo-Mechanically Treated) bars, specifically designed for Tata Steel's engineering standards (IS 1786).
 
 ## 🌟 Overview
 
-This suite utilizes state-of-the-art computer vision models—including **YOLOv8**, **Segment Anything (SAM)**, and **Gabor Pattern Detection**—to automate the inspection of rebar cross-sections (Ring Test) and longitudinal patterns (Rib Test).
+This suite utilizes advanced **Computer Vision** and **Signal Processing** algorithms—including **Otsu's Adaptive Thresholding**, **Probabilistic Hough Transform**, and **Structural Peak Detection**—to automate the inspection of rebar cross-sections (Ring Test) and longitudinal patterns (Rib Test) with 100% mathematical auditability.
 
 ## 📊 Modules
 
 ### 1. Ring Test (Cross-Section Analysis)
+**Current Version: v4.1 (Variability Analysis)**
 High-precision measurement of the Tempered Martensite (TM) ring morphology.
 - **Level 1: Qualitative Check**
   - Dark & Light region separation logic.
   - Ring continuity & concentricity verification.
-  - Thickness uniformity assessment.
-- **Level 2: Dimensional Check**
-  - Millimeter-accurate thickness calculation.
-  - Automatic PASSED/FAILED decision based on diameter-specific standards (8mm to 16mm).
-  - Explicit Target Window (Min/Max range) display.
+- **Level 2: Dimensional Check & Variability**
+  - **Equivalent Area Method**: Calculates standard average thickness.
+  - **Multi-Point Scanning**: Analyzes 360-degree thickness variability to report Min/Max spans.
+  - **Target Window**: Automatic PASSED/FAILED decision based on diameter-specific standards.
 
-### 2. Rib Test (v3.0 High-Accuracy Engine)
-**[NEW ARCHITECTURE]**
-Hybrid Deep Learning & Periodic Signal Analysis system designed for industrial precision.
-- **Localization**: YOLOv11 for intelligent rebar isolation and noise rejection.
-- **Deep Segmentation**: Gabor Frequency-Domain Mapping (DeepLabV3+ style) for texture-based rib extraction.
-- **Interval Assessment**: Signal periodicity analysis (DVNet-style) for sub-pixel inter-distance measurement.
-- **Metrics Calculated**:
-  - Number of ribs (Peak Detection)
-  - Transverse Angle
-  - Sub-pixel rib height
-  - AR Value (Area Relative) calculation
+### 2. Rib Test (Longitudinal Analysis)
+**Current Version: v4.0 (Engineering Precision)**
+Structural signal analysis system designed for industrial precision.
+- **Localization**: **HSV Chromatic Isolation** to filter specifically for steel textual signatures and reject backgrounds.
+- **Angle Detection**: **Probabilistic Hough Transform** for precise transverse rib angle measurement.
+- **Metric Calculation**:
+  - **Projected Rib Area ($A_R$)**: Uses the official IS 1786 formula: $1.33 \times L \times H \times \sin(\theta) / \text{Spacing}$.
+  - **Signal Processing**: `scipy.signal` for robust peak detection (rib counting).
 
 ## 🎨 Premium Web Interface
 
 The system features a modern "Industrial 4.0" dashboard:
-- **Glassmorphic UI**: Dark-themed, transparent panel design with vibrant accents.
-- **Interactive Landing Page**: Seamless navigation between testing modules.
-- **3-Column Dashboard**: 
-  - **Left**: Live configuration & Intelligent Image Cropper.
-  - **Center**: Real-time analytical results & Acceptance Criteria checkboxes.
-  - **Right**: High-contrast Status Badges and "Spectral" Visual Detection Maps.
+- **Glassmorphic UI**: High-contrast dark mode optimized for factory lighting.
+- **Mobile-First Design**: Fully responsive interface for real-time inspection via smartphone.
+- **Real-Time Analysis**: <200ms processing time per image.
 
 ## 🚀 Installation & Setup
 
 ### 1. Requirements
 - Python 3.9+
-- CUDA-compatible GPU (Optional, for faster SAM/YOLO performance)
+- Network access (for mobile usage)
 
 ### 2. Install Dependencies
 ```bash
@@ -56,32 +50,35 @@ pip install -r requirements.txt
 ```bash
 python run.py
 ```
-Access the dashboard at: `http://localhost:8000`
+
+### 📱 Mobile Access
+The system automatically detects your local IP address.
+1. Make sure your phone and PC are on the **same WiFi network**.
+2. Run the server. It will display a specialized URL (e.g., `http://192.168.x.x:8001`).
+3. Enter this URL in your phone's browser to upload images directly from the camera.
 
 ## 📂 Project Structure
 
 ```
 tata_steel/
 ├── app.py              # FastAPI Backend (Endpoints for Ring & Rib)
-├── ring_pipeline.py    # Ring Test Engine (OpenCV + Geometric Logic)
-├── rib_pipeline.py     # Rib Test Engine (YOLOv8 + SAM + Gabor Filters)
-├── run.py              # Server Entry Point
+├── ring_pipeline.py    # Ring Test Engine (Otsu + Morphology + Geometric)
+├── rib_pipeline.py     # Rib Test Engine (HSV + Hough + Signal Processing)
+├── run.py              # Server Entry Point (Auto-IP Detection)
 ├── static/             # Frontend Assets
 │   ├── index.html      # Landing Page
 │   ├── ring_test.html  # Ring Test Dashboard
 │   ├── rib_test.html   # Rib Test Dashboard
-│   ├── styles.css      # Premium Design System
-│   ├── common.js       # Shared UI Logic (Cropper, Uploads)
-│   ├── ring_test.js    # Ring Test Logic
-│   └── rib_test.js     # Rib Test Logic
+│   └── styles.css      # Premium Design System
 ├── uploads/            # Temporary storage for analysis
-└── requirements.txt    # AI & Backend 
+└── requirements.txt    # Dependencies
 ```
 
-## 🧠 AI Models Used
-- **YOLOv8**: Object detection for rebar localization.
-- **SAM (Segment Anything)**: Foundation model for sub-pixel boundary detection.
-- **Gabor Filter Bank**: Mathematical pattern recognition for diagonal textures.
+## 🧠 Technology Stack
+- **FastAPI**: High-performance async backend.
+- **OpenCV**: Core image processing.
+- **SciPy**: Advanced signal processing for rib detection.
+- **TailwindCSS**: Utilitarian styling framework.
 
 ## 🤝 Contributors
 - **Armaan Patel**: Lead Developer & AI Integration.

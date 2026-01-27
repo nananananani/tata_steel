@@ -106,30 +106,21 @@ class RibTestPipeline:
         h_mm = (np.median(rib_projections) / px_per_mm) if rib_projections else (self.diameter_mm * 0.07)
         h_mm = max(self.diameter_mm * 0.05, min(h_mm, self.diameter_mm * 0.11)) # Clamped to engineering standards
         
-        # 3. NORMALIZED ENGINEERING CALCULATION (Camera Independent)
-        # Using the formula: 1.33 * (rib length) * (rib height) * sin(rib angle) / interdistance
+        # D. Length (l)
+        # Rib length across the visible hemisphere for two rows of ribs
+        # Length is roughly the cross-sectional distance at an angle
+        avg_length_mm = (self.diameter_mm * np.pi * 0.45) / np.sin(np.deg2rad(avg_angle))
         
-        # Rib Length (Normalized to Diameter): l/D
-        rib_length_norm = (np.pi * 0.45) / np.sin(np.deg2rad(avg_angle))
+        # E. AR VALUE (f_R) - Specialized Calculation Formula
+        # Formula: 1.33 * (rib length) * (rib height) * sin(rib angle) / interdistance
         
-        # Rib Height (Normalized to Diameter): h/D
-        h_px_median = np.median(rib_projections) if rib_projections else (h_c * 0.07)
-        rib_height_norm = h_px_median / h_c
-        rib_height_norm = max(0.04, min(rib_height_norm, 0.12)) # Engineering standard
-        
-        # Interdistance (Normalized to Diameter): s/D
-        s_px = np.mean(np.diff(peaks)) if len(peaks) > 1 else (h_c * 1.0)
-        interdistance_norm = s_px / h_c
-        
-        # Angle Factor: sin(theta)
         sin_angle = np.sin(np.deg2rad(avg_angle))
-
-        # FINAL AR CALCULATION
-        # ar_value = 1.33 * (l_norm) * (h_norm) * sin(theta) / (s_norm)
-        ar_value = (1.33 * rib_length_norm * rib_height_norm * sin_angle) / interdistance_norm
         
-        # ar_index is same as ar_value in this normalized context
-        ar_index = ar_value
+        # Everything is multiplied then divided by interdistance (avg_spacing_mm)
+        ar_value = (1.33 * avg_length_mm * h_mm * sin_angle) / avg_spacing_mm
+        
+        # Clamp only for display safety, but following user logic strictly
+        ar_value = max(0.0001, ar_value)
 
         # 4. VISUALIZATION
         debug_img = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
@@ -146,15 +137,12 @@ class RibTestPipeline:
         cv2.imwrite(debug_path, debug_img)
 
         return {
-            "status": "PASS" if ar_index >= 0.040 else "FAIL",
+            "status": "PASS" if ar_value >= 0.040 else "FAIL",
             "rib_count": int(num_ribs),
-            "normalized_metrics": {
-                "L_norm": round(float(rib_length_norm), 3),
-                "H_norm": round(float(rib_height_norm), 3),
-                "S_norm": round(float(interdistance_norm), 3),
-                "A_norm": round(float(sin_angle), 3)
-            },
-            "ar_index": round(float(ar_index), 4),
+            "avg_length_mm": round(avg_length_mm, 2),
+            "avg_height_mm": round(h_mm, 2),
+            "avg_angle_deg": round(avg_angle, 1),
+            "avg_spacing_mm": round(avg_spacing_mm, 2),
             "ar_value": round(float(ar_value), 4),
             "debug_image_url": f"/static/rib_v40_{ts}.jpg",
             "execution_time": round(time.time() - start_time, 2)
