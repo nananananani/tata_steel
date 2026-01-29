@@ -22,32 +22,136 @@ class RingTestPipeline:
         self.diameter_mm = diameter_mm
         self.standards = get_thickness_standard(diameter_mm)
 
-    def run_ring_test(self, image: np.ndarray) -> Dict:
-        # 1. Validation
-        is_valid, issues = validate_image(image)
-        if not is_valid:
-            return {
-                "status": "FAIL",
-                "reason": f"Image quality issues: {'; '.join(issues)}",
-                "level1": None,
-                "level2": None,
-                "debug_image_path": None
-            }
+    def segment_rod(self, image: np.ndarray) -> np.ndarray:
+        """
+        Segments the rod from the background using edge detection and circularity filtering.
+        Returns the segmented image (rod on black background).
+        """
+        print("🔍 Applying intelligent edge-based segmentation...", flush=True)
 
-        # 2. Preprocess
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         blurred = cv2.GaussianBlur(gray, (7, 7), 0)
-        enhanced = enhance_image_contrast(blurred)
+        
+        # Canny edge detection
+        edges = cv2.Canny(blurred, 30, 100)
+        
+        # Morphological closing to connect edges
+        kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+        closed_edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel_close, iterations=3)
+        
+        # Find all edge contours
+        edge_contours, _ = cv2.findContours(closed_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Select ONLY the circular rod contour (filter out fingers)
+        rod_mask = np.zeros(image.shape[:2], dtype=np.uint8)
+        if edge_contours:
+            best_contour = None
+            best_score = 0
+            
+            for cnt in edge_contours:
+                area = cv2.contourArea(cnt)
+                
+                # Must be large enough (filter small noise)
+                if area < 5000:
+                    continue
+                
+                # Calculate circularity
+                perimeter = cv2.arcLength(cnt, True)
+                if perimeter == 0:
+                    continue
+                    
+                circularity = 4 * np.pi * area / (perimeter ** 2)
+                
+                # ROD must be circular (> 0.6), fingers are not
+                if circularity < 0.6:
+                    continue
+                
+                # Score = area × circularity
+                score = area * circularity
+                
+                if score > best_score:
+                    best_score = score
+                    best_contour = cnt
+            
+            if best_contour is not None:
+                # Create convex hull to ensure complete circle
+                hull = cv2.convexHull(best_contour)
+                cv2.drawContours(rod_mask, [hull], -1, 255, -1)
+                
+                # Smooth the mask
+                kernel_smooth = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+                rod_mask = cv2.morphologyEx(rod_mask, cv2.MORPH_CLOSE, kernel_smooth, iterations=2)
+                print(f"   ✅ Rod isolated successfully", flush=True)
+            else:
+                print(f"   ⚠️  No circular contour found, using full image", flush=True)
+                rod_mask = np.ones(image.shape[:2], dtype=np.uint8) * 255
+        
+        # Create segmented image (black background)
+        segmented_rgb = cv2.bitwise_and(image, image, mask=rod_mask)
+        
+        # Save for debugging
+        segmented_path = os.path.join(os.path.dirname(__file__), "static", "debug_edge_segmented.jpg")
+        cv2.imwrite(segmented_path, segmented_rgb)
+        print(f"   💾 Segmented image saved: debug_edge_segmented.jpg", flush=True)
+        
+        return segmented_rgb
+
+    def analyze_ring(self, image: np.ndarray, skip_validation: bool = False) -> Dict:
+        """
+        Performs the core Ring Test analysis on the provided image.
+        The image is assumed to be ready for analysis (pre-segmented if requested).
+        """
+        # 1. Validation (Skip if already validated or segmented)
+        if not skip_validation:
+            is_valid, issues = validate_image(image)
+            if not is_valid:
+                return {
+                    "status": "FAIL",
+                    "reason": f"Image quality issues: {'; '.join(issues)}",
+                    "level1": None,
+                    "level2": None,
+                    "debug_image_path": None
+                }
+
+        # 2. Preprocess (Start fresh with provided image)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
+        # Enhanced Preprocessing:
+        # If image is segmented (lots of black pixels), we should only enhance the rod part
+        non_zero_mask = (gray > 0).astype(np.uint8)
+        
+        if np.sum(non_zero_mask) > 0:
+            # Apply CLAHE only to non-zero regions
+            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+            enhanced_gray = clahe.apply(gray)
+            # Restore black background (CLAHE might raise black level)
+            enhanced_gray = cv2.bitwise_and(enhanced_gray, enhanced_gray, mask=non_zero_mask)
+            blurred = cv2.GaussianBlur(enhanced_gray, (7, 7), 0)
+            enhanced = enhanced_gray # Use the CLAHE enhanced version directly
+        else:
+            blurred = cv2.GaussianBlur(gray, (7, 7), 0)
+            enhanced = enhance_image_contrast(blurred)
         
         # 3. Detection
+        # Use Otsu's thresholding which handles bimodal distributions well
         _, thresh = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        
+        # Clean up threshold
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
         
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if not contours:
-            return {"status": "FAIL", "reason": "No rebar boundary detected", "level1": None, "level2": None}
+            # SAVE DEBUG IMAGE ON FAILURE
+            debug_path = save_debug_image(thresh, "ring_fail_thresh")
+            return {
+                "status": "FAIL", 
+                "reason": "No rebar boundary detected", 
+                "level1": None, 
+                "level2": None,
+                "debug_image_url": f"/static/{os.path.basename(debug_path)}"
+            }
             
         outer_cnt = max(contours, key=cv2.contourArea)
         outer_area = cv2.contourArea(outer_cnt)
@@ -56,14 +160,35 @@ class RingTestPipeline:
         # Core detection
         mask = np.zeros_like(gray)
         cv2.drawContours(mask, [outer_cnt], -1, 255, -1)
+        
+        # For core detection inside the rod:
+        # We need to find the boundary between the inner core and the ring.
         core_blurred = cv2.medianBlur(gray, 11)
-        core_val = np.percentile(core_blurred[mask > 0], 65) 
+        
+        # Calculate percentile only within the mask to determine threshold
+        masked_pixels = core_blurred[mask > 0]
+        if masked_pixels.size == 0:
+             # SAVE DEBUG IMAGE ON FAILURE
+             debug_path = save_debug_image(mask, "ring_fail_core")
+             return {
+                 "status": "FAIL", 
+                 "reason": "Empty core region", 
+                 "level1": None, 
+                 "level2": None,
+                 "debug_image_url": f"/static/{os.path.basename(debug_path)}"
+             }
+             
+             
+        # REVERTED TO PERCENTILE METHOD (Works better for standard rebar geometry)
+        core_val = np.percentile(masked_pixels, 65) 
+            
         _, core_thresh = cv2.threshold(core_blurred, core_val, 255, cv2.THRESH_BINARY)
         core_thresh = cv2.bitwise_and(core_thresh, mask)
         core_thresh = cv2.morphologyEx(core_thresh, cv2.MORPH_OPEN, kernel)
         
         core_contours, _ = cv2.findContours(core_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if not core_contours:
+            # Fallback for when core is not clearly detected
             inner_cnt = None
             i_radius_circle = o_radius_circle * 0.866
             inner_area = np.pi * (i_radius_circle**2)
@@ -99,6 +224,7 @@ class RingTestPipeline:
         within_std = self.standards['min'] <= thickness_mm <= self.standards['max']
         status = "PASS" if (l1_pass and within_std) else "FAIL"
         
+        # 5. Result Construction
         results = {
             "status": status,
             "reason": "All criteria met" if status == "PASS" else "Quality standards not met",
@@ -121,48 +247,77 @@ class RingTestPipeline:
             }
         }
 
-        # 5. Technical Visualization (Structural Span Labels)
+        # 6. Technical Visualization
         debug_img = image.copy()
         h, w = debug_img.shape[:2]
-        cv2.drawContours(debug_img, [outer_cnt], -1, (255, 100, 0), 2) 
+        
+        # Outer Contour = BLUE
+        cv2.drawContours(debug_img, [outer_cnt], -1, (255, 0, 0), 2) 
         if inner_cnt is not None:
+            # Inner Contour = GREEN
             cv2.drawContours(debug_img, [inner_cnt], -1, (0, 255, 0), 2) 
 
         # Final Center
         center_pt = (int(ix), int(iy))
         cv2.circle(debug_img, center_pt, 5, (0, 0, 255), -1)
+        
+        # Draw dotted circle (Theoretical)
+        theoretical_radius_mm = self.diameter_mm / 2
+        theoretical_radius_px = int(theoretical_radius_mm * px_per_mm)
+        
+        num_dots = 60
+        for i in range(num_dots):
+            angle = 2 * np.pi * i / num_dots
+            x = int(ix + theoretical_radius_px * np.cos(angle))
+            y = int(iy + theoretical_radius_px * np.sin(angle))
+            cv2.circle(debug_img, (x, y), 2, (0, 165, 255), -1)
 
-        # Labels - Increased Size & Visibility
+        # Labels
         font_scale_main = 0.7
         font_thick = 2
 
-        # 1. Tempered Martensite (TM) - Top Right
+        # TM Label (Outer) -> BLUE
         tm_label = "Tempered Martensite (TM)"
         tm_span = f"Max Span: {results['level2']['dimensions']['outer_radius_mm']:.2f}mm"
         tm_text_pos = (int(w * 0.55), 70)
         tm_point = (int(ox + o_radius_circle * 0.5), int(oy - o_radius_circle * 0.86))
         
-        cv2.line(debug_img, tm_text_pos, (tm_text_pos[0] + 300, tm_text_pos[1]), (255, 100, 0), 2)
-        cv2.line(debug_img, tm_text_pos, tm_point, (255, 100, 0), 2)
-        cv2.circle(debug_img, tm_point, 4, (255, 255, 255), -1) # Point marker
+        # Use Pure Blue for TM
+        tm_color = (255, 0, 0)
+        
+        if 0 <= tm_point[0] < w and 0 <= tm_point[1] < h:
+            cv2.line(debug_img, tm_text_pos, (tm_text_pos[0] + 300, tm_text_pos[1]), tm_color, 2)
+            cv2.line(debug_img, tm_text_pos, tm_point, tm_color, 2)
+            cv2.circle(debug_img, tm_point, 4, (255, 255, 255), -1)
         
         draw_text_with_background(debug_img, tm_label, (tm_text_pos[0] + 10, tm_text_pos[1] - 15), 
-                                 font_scale=font_scale_main, thickness=font_thick, text_color=(255, 255, 255), bg_color=(255, 100, 0))
+                                 font_scale=font_scale_main, thickness=font_thick, text_color=(255, 255, 255), bg_color=tm_color)
         draw_text_with_background(debug_img, tm_span, (tm_text_pos[0] + 10, tm_text_pos[1] + 30), 
                                  font_scale=0.55, thickness=2, text_color=(255, 255, 255), bg_color=(0, 0, 0))
 
-        # 2. Ferrite Pearlite (FP) - Bottom Left
+        # FP Label (Inner) -> GREEN
         fp_label = "Ferrite Pearlite (FP)"
         fp_span = f"Min Span: {results['level2']['dimensions']['inner_radius_mm']:.2f}mm"
         fp_text_pos = (50, h - 100)
         fp_point = (int(ix) - 5, int(iy) + 10)
         
-        cv2.line(debug_img, fp_text_pos, (fp_text_pos[0] + 250, fp_text_pos[1]), (0, 255, 0), 2)
-        cv2.line(debug_img, fp_text_pos, fp_point, (0, 255, 0), 2)
-        cv2.circle(debug_img, fp_point, 4, (255, 255, 255), -1) # Point marker
+        # Use Pure Green for FP
+        fp_color = (0, 255, 0)
+        
+        if 0 <= fp_point[0] < w and 0 <= fp_point[1] < h:
+            cv2.line(debug_img, fp_text_pos, (fp_text_pos[0] + 250, fp_text_pos[1]), fp_color, 2)
+            cv2.line(debug_img, fp_text_pos, fp_point, fp_color, 2)
+            cv2.circle(debug_img, fp_point, 4, (255, 255, 255), -1)
         
         draw_text_with_background(debug_img, fp_label, (fp_text_pos[0] + 10, fp_text_pos[1] - 15), 
-                                 font_scale=font_scale_main, thickness=font_thick, text_color=(255, 255, 255), bg_color=(0, 150, 0))
+                                 font_scale=font_scale_main, thickness=font_thick, text_color=(255, 255, 255), bg_color=fp_color) # Darker green for text readability? No, use pure green provided
+                                 
+        # Adjust text background to be slightly darker for readability if using pure green (0,255,0) is too bright with white text?
+        # Actually (0,255,0) with white text is hard to read. I'll use a slightly darker green for the box, but keep line pure green.
+        fp_box_color = (0, 180, 0) 
+        
+        draw_text_with_background(debug_img, fp_label, (fp_text_pos[0] + 10, fp_text_pos[1] - 15), 
+                                 font_scale=font_scale_main, thickness=font_thick, text_color=(255, 255, 255), bg_color=fp_box_color)
         draw_text_with_background(debug_img, fp_span, (fp_text_pos[0] + 10, fp_text_pos[1] + 30), 
                                  font_scale=0.55, thickness=2, text_color=(255, 255, 255), bg_color=(0, 0, 0))
             
@@ -173,6 +328,34 @@ class RingTestPipeline:
         results["debug_image_url"] = f"/static/{os.path.basename(debug_path)}"
         return results
 
-def run_ring_test(image: np.ndarray, diameter_mm: float = 12.0) -> Dict:
+def run_ring_test(image: np.ndarray, diameter_mm: float = 12.0, use_edge_segment: bool = False) -> Dict:
+    """
+    Main entry point for Ring Test.
+    Orchestrates segmentation and analysis.
+    """
     pipeline = RingTestPipeline(diameter_mm=diameter_mm)
-    return pipeline.run_ring_test(image)
+    
+    # Separation of Concerns:
+    # 1. Validation (Always validate ORIGINAL image first)
+    #    This ensures we don't fail later due to segmentation creating dark images
+    is_valid, issues = validate_image(image)
+    if not is_valid:
+        return {
+            "status": "FAIL",
+            "reason": f"Image quality issues: {'; '.join(issues)}",
+            "level1": None, 
+            "level2": None,
+            "debug_image_path": None
+        }
+
+    # 2. Segment if requested
+    did_segment = False
+    if use_edge_segment:
+        # segment_rod returns the segmented image (black background)
+        image_to_analyze = pipeline.segment_rod(image)
+        did_segment = True
+    else:
+        image_to_analyze = image
+        
+    # 3. Analyze the result (Skip internal validation if we already validated or segmented)
+    return pipeline.analyze_ring(image_to_analyze, skip_validation=True)

@@ -59,9 +59,15 @@ document.addEventListener('DOMContentLoaded', () => {
     ringElements.analyzeBtn.onclick = () => {
         if (!currentFile) return;
 
+        const upscale = document.getElementById('upscaleCheckbox')?.checked || false;
+        const edge_segment = document.getElementById('edgeSegmentCheckbox')?.checked || false;
+
+        console.log('AI Upscale:', upscale);
+        console.log('Edge Segmentation:', edge_segment);
+
         Common.runAnalysis('/api/ring-test', currentFile, currentDiameter, (data) => {
             displayResults(data, ringElements);
-        });
+        }, { upscale, edge_segment });
     };
 });
 
@@ -134,5 +140,17 @@ function displayResults(data, elements) {
     // Debug Image
     if (data.debug_image_url && elements.debugImage) {
         elements.debugImage.src = data.debug_image_url + '?t=' + Date.now();
+    }
+
+    // Segmented Image (if edge segmentation was used)
+    const segmentedContainer = document.getElementById('ringSegmentedImageContainer');
+    const segmentedImage = document.getElementById('ringSegmentedImage');
+
+    if (data.segmented_image_url && segmentedImage) {
+        segmentedImage.src = data.segmented_image_url;
+        segmentedContainer.classList.remove('hidden');
+        console.log('✅ Displaying edge-segmented image');
+    } else {
+        segmentedContainer.classList.add('hidden');
     }
 }

@@ -17,6 +17,7 @@ from datetime import datetime
 
 # Import test pipelines
 from ring_pipeline import run_ring_test
+from cloudinary_upscale import upscale_image_cloudinary
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -56,6 +57,7 @@ class RingTestResponse(BaseModel):
     level1: Optional[Dict] = None
     level2: Optional[Dict] = None
     debug_image_url: Optional[str] = None
+    segmented_image_url: Optional[str] = None
     timestamp: str
 
 
@@ -193,10 +195,14 @@ async def get_diameter_standard(diameter: int):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+
+
 @app.post("/api/ring-test", response_model=RingTestResponse)
 async def ring_test_endpoint(
     file: UploadFile = File(..., description="Image file of TMT bar cross-section"),
-    diameter: float = Form(..., description="TMT bar diameter in mm (any positive value)")
+    diameter: float = Form(..., description="TMT bar diameter in mm (any positive value)"),
+    upscale: bool = Form(False, description="Use Cloudinary AI upscaling"),
+    edge_segment: bool = Form(False, description="Use edge-based segmentation")
 ):
     """
     Perform ring test on uploaded image
@@ -205,6 +211,8 @@ async def ring_test_endpoint(
     Args:
         file: Image file (JPEG, PNG)
         diameter: TMT bar diameter in mm (any positive value)
+        upscale: Whether to use Cloudinary AI Super Resolution upscaling
+        edge_segment: Whether to use edge-based background removal
     
     Returns:
         Ring test results with status, measurements, and debug image
@@ -224,18 +232,47 @@ async def ring_test_endpoint(
         )
     
     try:
-        # Load image
-        image = load_image_from_upload(file)
+        if upscale:
+            # Save uploaded file temporarily for Cloudinary
+            temp_path = save_upload_file(file)
+            print(f"📷 Upscaling enabled. Temp file: {temp_path}", flush=True)
+            
+            try:
+                # Upscale using Cloudinary AI
+                image = upscale_image_cloudinary(temp_path)
+                
+                # Save upscaled image for verification
+                upscaled_debug_path = os.path.join(STATIC_DIR, "debug_upscaled.jpg")
+                cv2.imwrite(upscaled_debug_path, image)
+                print(f"💾 Upscaled image saved: {upscaled_debug_path}", flush=True)
+                
+            except Exception as upscale_error:
+                print(f"⚠️  Upscaling failed, using original: {upscale_error}", flush=True)
+                image = cv2.imread(temp_path)
+            finally:
+                # Clean up temp file
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+        else:
+            # Standard flow - load image directly
+            image = load_image_from_upload(file)
         
-        # STANDARD STABLE PIPELINE (Contour-based)
-        # Reverting to the version that the user found most reliable.
-        # SAM is kept as an optional import but not used for production analysis.
-        results = run_ring_test(image, diameter_mm=diameter)
+        # Run ring test pipeline with edge segmentation option
+        results = run_ring_test(image, diameter_mm=diameter, use_edge_segment=edge_segment)
         
         # Prepare response
         debug_image_url = results.get("debug_image_url")
         if not debug_image_url and results.get("debug_image_path"):
             debug_image_url = f"/static/{os.path.basename(results['debug_image_path'])}"
+        
+        # Add segmented image URL if edge segmentation was used
+        segmented_image_url = None
+        if edge_segment and os.path.exists(os.path.join(STATIC_DIR, "debug_edge_segmented.jpg")):
+            # Add timestamp to prevent caching
+            timestamp = int(datetime.now().timestamp() * 1000)
+            segmented_image_url = f"/static/debug_edge_segmented.jpg?t={timestamp}"
         
         response = RingTestResponse(
             status=results["status"],
@@ -243,6 +280,7 @@ async def ring_test_endpoint(
             level1=results.get("level1"),
             level2=results.get("level2"),
             debug_image_url=debug_image_url,
+            segmented_image_url=segmented_image_url,
             timestamp=datetime.now().isoformat()
         )
         

@@ -102,7 +102,7 @@ const Common = {
     /**
      * API Call Wrapper
      */
-    runAnalysis: async (endpoint, file, diameter, onResult) => {
+    runAnalysis: async (endpoint, file, diameter, onResult, extraParams = {}) => {
         const loader = document.getElementById('loadingOverlay');
         if (loader) loader.style.display = 'flex';
 
@@ -110,6 +110,11 @@ const Common = {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('diameter', diameter);
+
+            // Append extra parameters (e.g., upscale)
+            for (const key in extraParams) {
+                formData.append(key, extraParams[key]);
+            }
 
             const response = await fetch(endpoint, {
                 method: 'POST',
