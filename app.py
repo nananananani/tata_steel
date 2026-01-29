@@ -202,7 +202,8 @@ async def ring_test_endpoint(
     file: UploadFile = File(..., description="Image file of TMT bar cross-section"),
     diameter: float = Form(..., description="TMT bar diameter in mm (any positive value)"),
     upscale: bool = Form(False, description="Use Cloudinary AI upscaling"),
-    edge_segment: bool = Form(False, description="Use edge-based segmentation")
+    edge_segment: bool = Form(False, description="Use edge-based segmentation"),
+    hsv_tuning: bool = Form(False, description="Use HSV Color Tuning for contrast enhancement")
 ):
     """
     Perform ring test on uploaded image
@@ -213,6 +214,7 @@ async def ring_test_endpoint(
         diameter: TMT bar diameter in mm (any positive value)
         upscale: Whether to use Cloudinary AI Super Resolution upscaling
         edge_segment: Whether to use edge-based background removal
+        hsv_tuning: Whether to use HSV Color Tuning for contrast enhancement
     
     Returns:
         Ring test results with status, measurements, and debug image
@@ -260,7 +262,7 @@ async def ring_test_endpoint(
             image = load_image_from_upload(file)
         
         # Run ring test pipeline with edge segmentation option
-        results = run_ring_test(image, diameter_mm=diameter, use_edge_segment=edge_segment)
+        results = run_ring_test(image, diameter_mm=diameter, use_edge_segment=edge_segment, use_hsv_tuning=hsv_tuning)
         
         # Prepare response
         debug_image_url = results.get("debug_image_url")

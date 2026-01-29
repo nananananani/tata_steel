@@ -328,16 +328,40 @@ class RingTestPipeline:
         results["debug_image_url"] = f"/static/{os.path.basename(debug_path)}"
         return results
 
-def run_ring_test(image: np.ndarray, diameter_mm: float = 12.0, use_edge_segment: bool = False) -> Dict:
+    def apply_hsv_tuning(self, image: np.ndarray) -> np.ndarray:
+        """
+        Apply HSV Color Tuning to enhance contrast suitable for ring detection.
+        Strategy: Convert to HSV -> Equalize V-Channel -> Convert back to BGR.
+        This often brings out details in metallic surfaces better than standard BGR grayscale.
+        """
+        print("🎨 Applying HSV Color Tuning...", flush=True)
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        h, s, v = cv2.split(hsv)
+        
+        # Apply CLAHE to Value channel logic
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        v_enhanced = clahe.apply(v)
+        
+        # Merge back
+        hsv_enhanced = cv2.merge([h, s, v_enhanced])
+        bgr_enhanced = cv2.cvtColor(hsv_enhanced, cv2.COLOR_HSV2BGR)
+        
+        # Save for debugging to see what "Color Tuning" did
+        debug_path = os.path.join(os.path.dirname(__file__), "static", "debug_hsv_tuned.jpg")
+        cv2.imwrite(debug_path, bgr_enhanced)
+        print(f"   💾 HSV Tuned image saved: debug_hsv_tuned.jpg", flush=True)
+        
+        return bgr_enhanced
+
+def run_ring_test(image: np.ndarray, diameter_mm: float = 12.0, use_edge_segment: bool = False, use_hsv_tuning: bool = False) -> Dict:
     """
     Main entry point for Ring Test.
-    Orchestrates segmentation and analysis.
+    Orchestrates segmentation, color tuning, and analysis.
     """
     pipeline = RingTestPipeline(diameter_mm=diameter_mm)
     
     # Separation of Concerns:
     # 1. Validation (Always validate ORIGINAL image first)
-    #    This ensures we don't fail later due to segmentation creating dark images
     is_valid, issues = validate_image(image)
     if not is_valid:
         return {
@@ -348,14 +372,16 @@ def run_ring_test(image: np.ndarray, diameter_mm: float = 12.0, use_edge_segment
             "debug_image_path": None
         }
 
+    image_to_analyze = image
+
     # 2. Segment if requested
-    did_segment = False
     if use_edge_segment:
         # segment_rod returns the segmented image (black background)
-        image_to_analyze = pipeline.segment_rod(image)
-        did_segment = True
-    else:
-        image_to_analyze = image
+        image_to_analyze = pipeline.segment_rod(image_to_analyze)
         
-    # 3. Analyze the result (Skip internal validation if we already validated or segmented)
+    # 3. Apply Color Tuning if requested (Can be done on original or segmented)
+    if use_hsv_tuning:
+        image_to_analyze = pipeline.apply_hsv_tuning(image_to_analyze)
+        
+    # 4. Analyze the result (Skip internal validation)
     return pipeline.analyze_ring(image_to_analyze, skip_validation=True)

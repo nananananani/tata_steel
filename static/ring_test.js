@@ -61,13 +61,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const upscale = document.getElementById('upscaleCheckbox')?.checked || false;
         const edge_segment = document.getElementById('edgeSegmentCheckbox')?.checked || false;
+        const hsv_tuning = document.getElementById('hsvTuningCheckbox')?.checked || false;
 
         console.log('AI Upscale:', upscale);
         console.log('Edge Segmentation:', edge_segment);
+        console.log('HSV Color Tuning:', hsv_tuning);
 
         Common.runAnalysis('/api/ring-test', currentFile, currentDiameter, (data) => {
             displayResults(data, ringElements);
-        }, { upscale, edge_segment });
+        }, { upscale, edge_segment, hsv_tuning });
     };
 });
 
