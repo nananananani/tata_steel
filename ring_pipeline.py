@@ -270,17 +270,6 @@ class RingTestPipeline:
         # Final Center
         center_pt = (int(ix), int(iy))
         cv2.circle(debug_img, center_pt, 5, (0, 0, 255), -1)
-        
-        # Draw dotted circle (Theoretical)
-        theoretical_radius_mm = self.diameter_mm / 2
-        theoretical_radius_px = int(theoretical_radius_mm * px_per_mm)
-        
-        num_dots = 60
-        for i in range(num_dots):
-            angle = 2 * np.pi * i / num_dots
-            x = int(ix + theoretical_radius_px * np.cos(angle))
-            y = int(iy + theoretical_radius_px * np.sin(angle))
-            cv2.circle(debug_img, (x, y), 2, (0, 165, 255), -1)
 
         # Labels
         font_scale_main = 0.7
