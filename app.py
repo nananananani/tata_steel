@@ -90,6 +90,18 @@ def save_upload_file(upload_file: UploadFile) -> str:
     return filepath
 
 
+
+
+def resize_if_large(image: np.ndarray, max_dim: int = 1600) -> np.ndarray:
+    """Resize image to reasonable dimensions if too large"""
+    h, w = image.shape[:2]
+    if max(h, w) > max_dim:
+        scale = max_dim / max(h, w)
+        new_w, new_h = int(w * scale), int(h * scale)
+        print(f"📉 Resizing large image from {w}x{h} to {new_w}x{new_h}", flush=True)
+        return cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    return image
+
 def load_image_from_upload(upload_file: UploadFile) -> np.ndarray:
     """
     Load image from uploaded file
@@ -114,6 +126,9 @@ def load_image_from_upload(upload_file: UploadFile) -> np.ndarray:
     
     if image is None:
         raise HTTPException(status_code=400, detail="Invalid image file")
+    
+    # Optimize size for performance
+    image = resize_if_large(image)
     
     return image
 

@@ -113,35 +113,23 @@ class RingTestPipeline:
                     "debug_image_path": None
                 }
 
-        # 2. Preprocess (Start fresh with provided image)
+        # 2. Preprocessing & Outer Contour
+        # Since we might have an Edge Segmented image (Main object on Black Background),
+        # The Outer Contour is simply the boundary of the non-black pixels.
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
-        # Enhanced Preprocessing:
-        # If image is segmented (lots of black pixels), we should only enhance the rod part
-        non_zero_mask = (gray > 0).astype(np.uint8)
+        # Create a Mask of the Object (Any non-black pixel)
+        # This is extremely robust if segmentation was done beforehand.
+        _, object_mask = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY)
         
-        if np.sum(non_zero_mask) > 0:
-            # Apply CLAHE only to non-zero regions
-            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-            enhanced_gray = clahe.apply(gray)
-            # Restore black background (CLAHE might raise black level)
-            enhanced_gray = cv2.bitwise_and(enhanced_gray, enhanced_gray, mask=non_zero_mask)
-            blurred = cv2.GaussianBlur(enhanced_gray, (7, 7), 0)
-            enhanced = enhanced_gray # Use the CLAHE enhanced version directly
-        else:
+        # Find contours on this mask directly
+        contours, _ = cv2.findContours(object_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Fallback Strategy: If non-zero struct failed (e.g. image is full rectangle), use Otsu
+        if not contours:
             blurred = cv2.GaussianBlur(gray, (7, 7), 0)
-            enhanced = enhance_image_contrast(blurred)
-        
-        # 3. Detection
-        # Use Otsu's thresholding which handles bimodal distributions well
-        _, thresh = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        
-        # Clean up threshold
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
-        
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if not contours:
             # SAVE DEBUG IMAGE ON FAILURE
             debug_path = save_debug_image(thresh, "ring_fail_thresh")
@@ -157,18 +145,20 @@ class RingTestPipeline:
         outer_area = cv2.contourArea(outer_cnt)
         (ox, oy), o_radius_circle = cv2.minEnclosingCircle(outer_cnt)
         
-        # Core detection
+        # Core detection - PERCENTILE METHOD (Simple & Robust)
+        # The core is LIGHTER than the ring, so we look for brighter pixels
+        
         mask = np.zeros_like(gray)
         cv2.drawContours(mask, [outer_cnt], -1, 255, -1)
         
-        # For core detection inside the rod:
-        # We need to find the boundary between the inner core and the ring.
-        core_blurred = cv2.medianBlur(gray, 11)
+        # Erode mask to avoid detecting the outer edge as core boundary
+        kernel_erode = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
+        inner_mask = cv2.erode(mask, kernel_erode)
         
-        # Calculate percentile only within the mask to determine threshold
-        masked_pixels = core_blurred[mask > 0]
+        # Get pixels inside the rod only
+        masked_pixels = gray[inner_mask > 0]
+        
         if masked_pixels.size == 0:
-             # SAVE DEBUG IMAGE ON FAILURE
              debug_path = save_debug_image(mask, "ring_fail_core")
              return {
                  "status": "FAIL", 
@@ -177,15 +167,25 @@ class RingTestPipeline:
                  "level2": None,
                  "debug_image_url": f"/static/{os.path.basename(debug_path)}"
              }
-             
-             
-        # REVERTED TO PERCENTILE METHOD (Works better for standard rebar geometry)
-        core_val = np.percentile(masked_pixels, 65) 
-            
-        _, core_thresh = cv2.threshold(core_blurred, core_val, 255, cv2.THRESH_BINARY)
-        core_thresh = cv2.bitwise_and(core_thresh, mask)
-        core_thresh = cv2.morphologyEx(core_thresh, cv2.MORPH_OPEN, kernel)
         
+        # Core is LIGHTER - use 70th percentile as threshold
+        # Pixels ABOVE this are considered core
+        core_val = np.percentile(masked_pixels, 70)
+        
+        # Threshold: Keep brighter pixels (core)
+        _, core_thresh = cv2.threshold(gray, core_val, 255, cv2.THRESH_BINARY)
+        
+        # Mask to interior only
+        core_thresh = cv2.bitwise_and(core_thresh, inner_mask)
+        
+        # Morphological operations to clean up
+        kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+        core_thresh = cv2.morphologyEx(core_thresh, cv2.MORPH_CLOSE, kernel_close, iterations=2)
+        
+        kernel_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+        core_thresh = cv2.morphologyEx(core_thresh, cv2.MORPH_OPEN, kernel_open, iterations=1)
+        
+        # Find contours
         core_contours, _ = cv2.findContours(core_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if not core_contours:
             # Fallback for when core is not clearly detected
@@ -332,21 +332,34 @@ class RingTestPipeline:
         """
         Apply HSV Color Tuning to enhance contrast suitable for ring detection.
         Strategy: Convert to HSV -> Equalize V-Channel -> Convert back to BGR.
-        This often brings out details in metallic surfaces better than standard BGR grayscale.
+        IMPORTANT: Handles segmented images by ignoring black background.
         """
         print("🎨 Applying HSV Color Tuning...", flush=True)
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         h, s, v = cv2.split(hsv)
         
-        # Apply CLAHE to Value channel logic
+        # Create a mask for non-black pixels (if image is segmented)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        _, mask = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY)
+        
+        # Apply CLAHE to Value channel
+        # We assume black background has V=0, so it shouldn't affect much, 
+        # but standard CLAHE might over-boost noise if we aren't careful.
+        # Ideally, we only want to enhance the ROI.
+        
         clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
         v_enhanced = clahe.apply(v)
         
+        # If we have a mask (segmented image), force background back to black
+        # This prevents the "gray halo" effect around the rod
+        if np.sum(mask) > 0:
+            v_enhanced = cv2.bitwise_and(v_enhanced, v_enhanced, mask=mask)
+            
         # Merge back
         hsv_enhanced = cv2.merge([h, s, v_enhanced])
         bgr_enhanced = cv2.cvtColor(hsv_enhanced, cv2.COLOR_HSV2BGR)
         
-        # Save for debugging to see what "Color Tuning" did
+        # Save for debugging
         debug_path = os.path.join(os.path.dirname(__file__), "static", "debug_hsv_tuned.jpg")
         cv2.imwrite(debug_path, bgr_enhanced)
         print(f"   💾 HSV Tuned image saved: debug_hsv_tuned.jpg", flush=True)
