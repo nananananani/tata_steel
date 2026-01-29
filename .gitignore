@@ -42,6 +42,11 @@ static/*.png
 uploads/
 *.log
 
+# Environment variables (CRITICAL: Never commit)
+.env
+.env.local
+.env.*.local
+
 # OS
 .DS_Store
 Thumbs.db

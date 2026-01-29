@@ -46,7 +46,23 @@ The system features a modern "Industrial 4.0" dashboard:
 pip install -r requirements.txt
 ```
 
-### 3. Start the Suite
+### 3. Configure Environment Variables
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit .env and add your Cloudinary credentials (optional, only needed for AI upscaling)
+# Get free credentials at https://cloudinary.com
+```
+
+Required environment variables in `.env`:
+- `CLOUDINARY_CLOUD_NAME`: Your Cloudinary cloud name
+- `CLOUDINARY_API_KEY`: Your Cloudinary API key  
+- `CLOUDINARY_API_SECRET`: Your Cloudinary API secret
+
+> **Note**: Cloudinary is only required if you enable AI image upscaling. The system works without it.
+
+### 4. Start the Suite
 ```bash
 python run.py
 ```

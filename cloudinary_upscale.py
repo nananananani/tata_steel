@@ -10,12 +10,16 @@ import requests
 import cv2
 import numpy as np
 import os
+from dotenv import load_dotenv
 
-# Configure Cloudinary
+# Load environment variables
+load_dotenv()
+
+# Configure Cloudinary from environment variables
 cloudinary.config( 
-    cloud_name = "dp5antase", 
-    api_key = "834477947116472", 
-    api_secret = "Pth5br5b9GhkD8x0v7We0uenZ7A",
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"), 
+    api_key=os.getenv("CLOUDINARY_API_KEY"), 
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
     secure=True
 )
 
