@@ -96,7 +96,7 @@ class RingTestPipeline:
         
         return segmented_rgb
 
-    def analyze_ring(self, image: np.ndarray, skip_validation: bool = False) -> Dict:
+    def analyze_ring(self, image: np.ndarray, skip_validation: bool = False, is_segmented: bool = False) -> Dict:
         """
         Performs the core Ring Test analysis on the provided image.
         The image is assumed to be ready for analysis (pre-segmented if requested).
@@ -114,22 +114,32 @@ class RingTestPipeline:
                 }
 
         # 2. Preprocessing & Outer Contour
-        # Since we might have an Edge Segmented image (Main object on Black Background),
-        # The Outer Contour is simply the boundary of the non-black pixels.
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
-        # Create a Mask of the Object (Any non-black pixel)
-        # This is extremely robust if segmentation was done beforehand.
-        _, object_mask = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY)
+        contours = []
+        thresh = None
         
-        # Find contours on this mask directly
-        contours, _ = cv2.findContours(object_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        # Fallback Strategy: If non-zero struct failed (e.g. image is full rectangle), use Otsu
-        if not contours:
+        if is_segmented:
+            # OPTION A: Image is ALREADY Segmented (Black Background)
+            # The Outer Contour is simply the boundary of the non-black pixels.
+            # This is extremely robust and precise for segmented images.
+            _, object_mask = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY)
+            contours, _ = cv2.findContours(object_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        else:
+            # OPTION B: Raw Image (Messy Background)
+            # We must use robust thresholding to separate the rod from background
             blurred = cv2.GaussianBlur(gray, (7, 7), 0)
             _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Fallback Strategy: If primary method failed, try the other one
+        if not contours:
+             if is_segmented:
+                 # Try Otsu even on segmented if mask failed (unlikely)
+                 blurred = cv2.GaussianBlur(gray, (7, 7), 0)
+                 _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                 contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
         if not contours:
             # SAVE DEBUG IMAGE ON FAILURE
             debug_path = save_debug_image(thresh, "ring_fail_thresh")
@@ -397,4 +407,6 @@ def run_ring_test(image: np.ndarray, diameter_mm: float = 12.0, use_edge_segment
         image_to_analyze = pipeline.apply_hsv_tuning(image_to_analyze)
         
     # 4. Analyze the result (Skip internal validation)
-    return pipeline.analyze_ring(image_to_analyze, skip_validation=True)
+    # Pass 'is_segmented' so the analyzer knows whether to trust the black background (edge_segment=True)
+    # or use robust thresholding for raw images (edge_segment=False)
+    return pipeline.analyze_ring(image_to_analyze, skip_validation=True, is_segmented=use_edge_segment)
