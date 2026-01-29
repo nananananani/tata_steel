@@ -20,7 +20,7 @@ def get_ip():
 
 if __name__ == "__main__":
     ip_addr = get_ip()
-    port = 8001
+    port = 8002
     
     print("=" * 60)
     print("🏭 Tata Steel Rebar Testing System")
@@ -34,7 +34,7 @@ if __name__ == "__main__":
     print("=" * 60)
     
     try:
-        uvicorn.run("app:app", host="0.0.0.0", port=port, reload=False)
+        uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True)
     except Exception as e:
         print(f"\n❌ Server failed to start: {e}")
         print("\nPossible fixes:")

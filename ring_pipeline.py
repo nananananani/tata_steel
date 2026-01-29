@@ -35,55 +35,51 @@ class RingTestPipeline:
         # Canny edge detection
         edges = cv2.Canny(blurred, 30, 100)
         
-        # Morphological closing to connect edges
-        kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
-        closed_edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel_close, iterations=3)
+        # Morphological closing - smaller kernel to avoid merging rod with fingers
+        kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+        closed_edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel_close, iterations=2)
         
         # Find all edge contours
         edge_contours, _ = cv2.findContours(closed_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         # Select ONLY the circular rod contour (filter out fingers)
         rod_mask = np.zeros(image.shape[:2], dtype=np.uint8)
+        img_h, img_w = image.shape[:2]
+        img_center = (img_w // 2, img_h // 2)
+        
         if edge_contours:
             best_contour = None
-            best_score = 0
+            max_score = -1
             
             for cnt in edge_contours:
                 area = cv2.contourArea(cnt)
-                
-                # Must be large enough (filter small noise)
-                if area < 5000:
-                    continue
+                if area < 3000: continue # Ignore small noise
                 
                 # Calculate circularity
                 perimeter = cv2.arcLength(cnt, True)
-                if perimeter == 0:
-                    continue
-                    
+                if perimeter == 0: continue
                 circularity = 4 * np.pi * area / (perimeter ** 2)
+                if circularity < 0.6: continue # Stricter circularity for rods
                 
-                # ROD must be circular (> 0.6), fingers are not
-                if circularity < 0.6:
-                    continue
+                # Calculate distance from center (Centrality)
+                (cx, cy), radius = cv2.minEnclosingCircle(cnt)
+                dist_from_center = np.sqrt((cx - img_center[0])**2 + (cy - img_center[1])**2)
+                centrality_score = 1.0 - (dist_from_center / (max(img_h, img_w) / 2))
                 
-                # Score = area × circularity
-                score = area * circularity
+                # Final Score: prioritize circular objects near the center
+                # We decrease the area weight slightly relative to circularity to avoid big hands winning
+                score = (area / (img_h * img_w))**0.5 * (circularity**2) * centrality_score
                 
-                if score > best_score:
-                    best_score = score
+                if score > max_score:
+                    max_score = score
                     best_contour = cnt
             
             if best_contour is not None:
-                # Create convex hull to ensure complete circle
-                hull = cv2.convexHull(best_contour)
-                cv2.drawContours(rod_mask, [hull], -1, 255, -1)
-                
-                # Smooth the mask
-                kernel_smooth = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-                rod_mask = cv2.morphologyEx(rod_mask, cv2.MORPH_CLOSE, kernel_smooth, iterations=2)
-                print(f"   ✅ Rod isolated successfully", flush=True)
+                cv2.drawContours(rod_mask, [cv2.convexHull(best_contour)], -1, 255, -1)
+                rod_mask = cv2.morphologyEx(rod_mask, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+                print(f"   ✅ Rod isolated successfully (Score: {max_score:.4f})", flush=True)
             else:
-                print(f"   ⚠️  No circular contour found, using full image", flush=True)
+                print(f"   ⚠️  No circular contour found, using fallback", flush=True)
                 rod_mask = np.ones(image.shape[:2], dtype=np.uint8) * 255
         
         # Create segmented image (black background)
@@ -155,48 +151,35 @@ class RingTestPipeline:
         outer_area = cv2.contourArea(outer_cnt)
         (ox, oy), o_radius_circle = cv2.minEnclosingCircle(outer_cnt)
         
-        # Core detection - PERCENTILE METHOD (Simple & Robust)
-        # The core is LIGHTER than the ring, so we look for brighter pixels
-        
+        # Core detection - ADAPTIVE LOCAL METHOD
+        # The core is LIGHTER than the ring. 
         mask = np.zeros_like(gray)
         cv2.drawContours(mask, [outer_cnt], -1, 255, -1)
         
-        # Erode mask to avoid detecting the outer edge as core boundary
-        kernel_erode = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
-        inner_mask = cv2.erode(mask, kernel_erode)
+        # Create a more focused inner ROI (avoiding the dark TM ring)
+        # Rebar core is typically around 70-85% of total radius
+        # We erode by 30% of radius to be safe but effective for core isolation
+        erosion_dist = max(5, int(o_radius_circle * 0.3))
+        roi_mask = cv2.erode(mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (erosion_dist, erosion_dist)))
         
-        # Get pixels inside the rod only
-        masked_pixels = gray[inner_mask > 0]
+        if np.sum(roi_mask) == 0:
+             # Fallback if erosion was too aggressive
+             roi_mask = cv2.erode(mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10)))
+
+        # Extract ROI for localized thresholding
+        roi_pixels = gray[roi_mask > 0]
         
-        if masked_pixels.size == 0:
-             debug_path = save_debug_image(mask, "ring_fail_core")
-             return {
-                 "status": "FAIL", 
-                 "reason": "Empty core region", 
-                 "level1": None, 
-                 "level2": None,
-                 "debug_image_url": f"/static/{os.path.basename(debug_path)}"
-             }
-        
-        # Core is LIGHTER - use 70th percentile as threshold
-        # Pixels ABOVE this are considered core
-        core_val = np.percentile(masked_pixels, 70)
-        
-        # Threshold: Keep brighter pixels (core)
-        _, core_thresh = cv2.threshold(gray, core_val, 255, cv2.THRESH_BINARY)
-        
-        # Mask to interior only
-        core_thresh = cv2.bitwise_and(core_thresh, inner_mask)
-        
-        # Morphological operations to clean up
-        kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
-        core_thresh = cv2.morphologyEx(core_thresh, cv2.MORPH_CLOSE, kernel_close, iterations=2)
-        
-        kernel_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-        core_thresh = cv2.morphologyEx(core_thresh, cv2.MORPH_OPEN, kernel_open, iterations=1)
-        
-        # Find contours
-        core_contours, _ = cv2.findContours(core_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if roi_pixels.size > 0:
+            # Use Otsu's thresholding ONLY on the ROI to find the lightest part (core)
+            _, core_thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            core_thresh = cv2.bitwise_and(core_thresh, roi_mask)
+            
+            # Clean up core detection
+            core_thresh = cv2.morphologyEx(core_thresh, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+            core_contours, _ = cv2.findContours(core_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        else:
+            core_contours = []
+
         if not core_contours:
             # Fallback for when core is not clearly detected
             inner_cnt = None
@@ -261,10 +244,27 @@ class RingTestPipeline:
         debug_img = image.copy()
         h, w = debug_img.shape[:2]
         
-        # Outer Contour = BLUE
+        # Create overlays for regions
+        # TM Region (Annulus) - Blue overlay
+        tm_mask = np.zeros((h, w), dtype=np.uint8)
+        cv2.drawContours(tm_mask, [outer_cnt], -1, 255, -1)
+        if inner_cnt is not None:
+            cv2.drawContours(tm_mask, [inner_cnt], -1, 0, -1)
+        
+        # Apply Blue overlay to TM region
+        debug_img[tm_mask > 0] = cv2.addWeighted(debug_img[tm_mask > 0], 0.7, 
+                                                 np.full_like(debug_img[tm_mask > 0], (255, 0, 0)), 0.3, 0)
+                                                 
+        # Draw FP Region (Core) - Green overlay
+        if inner_cnt is not None:
+            fp_mask = np.zeros((h, w), dtype=np.uint8)
+            cv2.drawContours(fp_mask, [inner_cnt], -1, 255, -1)
+            debug_img[fp_mask > 0] = cv2.addWeighted(debug_img[fp_mask > 0], 0.7, 
+                                                     np.full_like(debug_img[fp_mask > 0], (0, 255, 0)), 0.3, 0)
+
+        # Draw Contours
         cv2.drawContours(debug_img, [outer_cnt], -1, (255, 0, 0), 2) 
         if inner_cnt is not None:
-            # Inner Contour = GREEN
             cv2.drawContours(debug_img, [inner_cnt], -1, (0, 255, 0), 2) 
 
         # Final Center
@@ -277,11 +277,13 @@ class RingTestPipeline:
 
         # TM Label (Outer) -> BLUE
         tm_label = "Tempered Martensite (TM)"
-        tm_span = f"Max Span: {results['level2']['dimensions']['outer_radius_mm']:.2f}mm"
+        tm_span = f"Avg Thickness: {results['level2']['thickness_mm']:.2f}mm"
         tm_text_pos = (int(w * 0.55), 70)
-        tm_point = (int(ox + o_radius_circle * 0.5), int(oy - o_radius_circle * 0.86))
         
-        # Use Pure Blue for TM
+        # Point to the MIDDLE of the TM ring
+        tm_visual_r = (o_radius_circle + i_radius_circle) / 2
+        tm_point = (int(ox + tm_visual_r * 0.7), int(oy - tm_visual_r * 0.7))
+        
         tm_color = (255, 0, 0)
         
         if 0 <= tm_point[0] < w and 0 <= tm_point[1] < h:
@@ -296,24 +298,19 @@ class RingTestPipeline:
 
         # FP Label (Inner) -> GREEN
         fp_label = "Ferrite Pearlite (FP)"
-        fp_span = f"Min Span: {results['level2']['dimensions']['inner_radius_mm']:.2f}mm"
-        fp_text_pos = (50, h - 100)
-        fp_point = (int(ix) - 5, int(iy) + 10)
+        fp_span = f"Core Radius: {results['level2']['dimensions']['inner_radius_mm']:.2f}mm"
+        fp_text_pos = (50, h - 80)
         
-        # Use Pure Green for FP
+        # Point to the MIDDLE of the FP core
+        fp_point = (int(ix + i_radius_circle * 0.3), int(iy + i_radius_circle * 0.3))
+        
         fp_color = (0, 255, 0)
+        fp_box_color = (0, 150, 0)
         
         if 0 <= fp_point[0] < w and 0 <= fp_point[1] < h:
             cv2.line(debug_img, fp_text_pos, (fp_text_pos[0] + 250, fp_text_pos[1]), fp_color, 2)
             cv2.line(debug_img, fp_text_pos, fp_point, fp_color, 2)
             cv2.circle(debug_img, fp_point, 4, (255, 255, 255), -1)
-        
-        draw_text_with_background(debug_img, fp_label, (fp_text_pos[0] + 10, fp_text_pos[1] - 15), 
-                                 font_scale=font_scale_main, thickness=font_thick, text_color=(255, 255, 255), bg_color=fp_color) # Darker green for text readability? No, use pure green provided
-                                 
-        # Adjust text background to be slightly darker for readability if using pure green (0,255,0) is too bright with white text?
-        # Actually (0,255,0) with white text is hard to read. I'll use a slightly darker green for the box, but keep line pure green.
-        fp_box_color = (0, 180, 0) 
         
         draw_text_with_background(debug_img, fp_label, (fp_text_pos[0] + 10, fp_text_pos[1] - 15), 
                                  font_scale=font_scale_main, thickness=font_thick, text_color=(255, 255, 255), bg_color=fp_box_color)
